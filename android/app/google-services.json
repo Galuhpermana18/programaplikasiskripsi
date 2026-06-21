@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "495467798133",
+    "firebase_url": "https://airfresh-9fffa-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "airfresh-9fffa",
+    "storage_bucket": "airfresh-9fffa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:495467798133:android:01ffacd6a5b71117f8623c",
+        "android_client_info": {
+          "package_name": "com.DLabs.air_fresh"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCKlj5NElzFLD455v-5pm-KQoYvEEQNqyg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
