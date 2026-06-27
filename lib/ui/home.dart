@@ -1,8 +1,8 @@
 ﻿import 'package:flutter/material.dart';
 import 'dart:async';
 
-import 'package:firebase_database/firebase_database.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter/services.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
@@ -26,13 +26,15 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
-  late final FirebaseService firebaseService;
+  late FirebaseService firebaseService;
   StreamSubscription<Map<String, dynamic>>? sensorSubscription;
   StreamSubscription<ToggleStatus>? toggleSubscription;
+  StreamSubscription<int>? filterSubscription;
   Timer? connectionTimer;
   DateTime? lastSensorUpdate;
   String? timeCategory;
   bool isConnected = false;
+  String activeDeviceId = '';
 
   late PageController pageController;
   late AnimationController scaleAnimation;
@@ -79,7 +81,8 @@ class _HomePageState extends State<HomePage>
   void initState() {
     super.initState();
 
-    firebaseService = FirebaseService(deviceId: widget.deviceId);
+    activeDeviceId = widget.deviceId;
+    firebaseService = FirebaseService(deviceId: activeDeviceId);
 
     pageController = PageController();
 
@@ -100,6 +103,7 @@ class _HomePageState extends State<HomePage>
   void dispose() {
     sensorSubscription?.cancel();
     toggleSubscription?.cancel();
+    filterSubscription?.cancel();
     connectionTimer?.cancel();
     pageController.dispose();
     scaleAnimation.dispose();
@@ -109,21 +113,52 @@ class _HomePageState extends State<HomePage>
   Future<void> _initializeDeviceData() async {
     isFanModeAutomatic = await DeviceStorage.loadFanMode();
     isPowerOn = await DeviceStorage.loadPowerState();
+
+    if (activeDeviceId.isEmpty) {
+      activeDeviceId = await _resolveDeviceId();
+      firebaseService = FirebaseService(deviceId: activeDeviceId);
+    }
+
     if (mounted) setState(() {});
 
-    if (widget.deviceId.isEmpty) {
+    if (activeDeviceId.isEmpty) {
       scaleAnimation.stop();
       return;
     }
 
+    await _startDeviceDataListeners();
+  }
+
+  Future<void> _startDeviceDataListeners() async {
+    if (!mounted || activeDeviceId.isEmpty) return;
+
+    await sensorSubscription?.cancel();
+    await filterSubscription?.cancel();
+    await toggleSubscription?.cancel();
+    connectionTimer?.cancel();
+
+    firebaseService = FirebaseService(deviceId: activeDeviceId);
+
+    debugPrint(
+      '[HOME] Memulai listener Firebase untuk device: $activeDeviceId',
+    );
     _initializeNativeService();
 
-    FirebaseDatabase.instance.ref(firebaseService.sensorsPath).keepSynced(true);
+    await airFreshDatabase.ref(firebaseService.sensorsPath).keepSynced(true);
     sensorSubscription = firebaseService.getSensorStream().listen(
       _handleSensorData,
       onError: (Object error) {
         debugPrint('[Firebase] Sensor stream error: $error');
         _setConnectionState(false);
+      },
+    );
+    filterSubscription = firebaseService.getFilterLifeStream().listen(
+      (value) {
+        if (!mounted) return;
+        setState(() => filterLife = value.clamp(0, 100));
+      },
+      onError: (Object error) {
+        debugPrint('[Firebase] Filter stream error: $error');
       },
     );
     toggleSubscription = firebaseService.getToggleStream().listen(
@@ -145,10 +180,15 @@ class _HomePageState extends State<HomePage>
 
     connectionTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       final update = lastSensorUpdate;
-      final online = update != null &&
+      final online =
+          update != null &&
           DateTime.now().difference(update) <= const Duration(seconds: 5);
       _setConnectionState(online);
     });
+  }
+
+  Future<String> _resolveDeviceId() async {
+    return await DeviceStorage.loadDeviceId() ?? '';
   }
 
   void _handleSensorData(Map<String, dynamic> data) {
@@ -163,11 +203,7 @@ class _HomePageState extends State<HomePage>
       co2 = _asDouble(data['co2']).round();
       tvoc = _asDouble(data['tvoc']);
       temperature = _asDouble(data['temperature'] ?? data['temp']);
-      humidity = _asDouble(data['humidity']);
-      filterLife = _asDouble(data['filterlife'], fallback: 100)
-          .round()
-          .clamp(0, 100)
-          .toInt();
+      humidity = _asDouble(data['humidity'] ?? data['hum']);
       lastSensorUpdate = DateTime.now();
       isConnected = true;
     });
@@ -320,7 +356,9 @@ class _HomePageState extends State<HomePage>
       }
 
       _updateLocationName(_formatLocationName(placemarks.first));
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('[Location] Gagal membaca lokasi: $error');
+      debugPrintStack(stackTrace: stackTrace);
       _updateLocationName('Gagal membaca lokasi');
     }
   }
@@ -408,449 +446,486 @@ class _HomePageState extends State<HomePage>
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.only(bottom: 130),
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 10),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: horizontalPadding,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        const SizedBox(height: 10),
+
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Hello, $timeCategory',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                                fontFamily: 'Montserrat',
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'Have a fresh day',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'Montserrat',
-                              ),
-                            ),
-                          ],
-                          ),
-                        ),
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 500),
-                          child: Icon(
-                            isConnected ? Icons.wifi : Icons.wifi_off,
-                            key: ValueKey(isConnected),
-                            color: isConnected ? Colors.green : Colors.red,
-                            size: 28,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        const Text(
-                          'Udara : ',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontFamily: 'Montserrat',
-                          ),
-                        ),
-                        Text(
-                          status.label,
-                          style: TextStyle(
-                            color: status.color,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
-                            fontFamily: 'Montserrat',
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    Row(
-                      children: [
-                        Expanded(
-                          child: InkWell(
-                            onTap: () {
-                              showModalBottomSheet(
-                                context: context,
-                                isScrollControlled: true,
-                                shape: const RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.vertical(
-                                    top: Radius.circular(20),
-                                  ),
-                                ),
-                                builder: (context) => const ConnectPage(),
-                              );
-                            },
-                            child: _statusChip(
-                              context,
-                              Icons.cast_connected_rounded,
-                              'Connect',
-                              Colors.purple,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 7),
-                        Expanded(
-                          child: InkWell(
-                            onTap: _showFilterSheet,
-                            child: _statusChip(
-                              context,
-                              Icons.filter_alt,
-                              'Filter $filterLife%',
-                              Colors.blue,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 7),
-                        Expanded(
-                          child: InkWell(
-                            onTap: _showSettingsBottomSheet,
-                            child: _statusChip(
-                              context,
-                              Icons.settings_rounded,
-                              'Settings',
-                              Colors.blue,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    InkWell(
-                      onTap: _loadCurrentLocation,
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 11,
-                          vertical: 9,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Colors.blue.withValues(alpha: 0.10),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(7),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.blue.withValues(alpha: 0.14),
-                              ),
-                              child: const Icon(
-                                Icons.location_on_rounded,
-                                color: Colors.blue,
-                                size: 18,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Lokasi Saya',
+                                    'Hello, $timeCategory',
                                     style: TextStyle(
+                                      fontSize: 14,
                                       color: Colors.grey[600],
-                                      fontSize: 10,
                                       fontFamily: 'Montserrat',
                                     ),
                                   ),
-                                  const SizedBox(height: 1),
-                                  Text(
-                                    locationName,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.black87,
-                                      fontSize: 13,
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    'Have a fresh day',
+                                    style: TextStyle(
+                                      fontSize: 22,
                                       fontWeight: FontWeight.bold,
                                       fontFamily: 'Montserrat',
+                                    ),
+                                  ),
+                                  const SizedBox(height: 7),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.developer_board_rounded,
+                                        size: 16,
+                                        color: isConnected
+                                            ? Colors.green
+                                            : Colors.grey[600],
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          activeDeviceId.isNotEmpty
+                                              ? activeDeviceId
+                                              : 'Belum ada perangkat',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[700],
+                                            fontWeight: FontWeight.w600,
+                                            fontFamily: 'Montserrat',
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 500),
+                              child: Icon(
+                                isConnected
+                                    ? Icons.cloud_done_rounded
+                                    : Icons.cloud_off_rounded,
+                                key: ValueKey(isConnected),
+                                color: isConnected ? Colors.green : Colors.red,
+                                size: 28,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 14),
+
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            const Text(
+                              'Udara : ',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontFamily: 'Montserrat',
+                              ),
+                            ),
+                            Text(
+                              status.label,
+                              style: TextStyle(
+                                color: status.color,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                fontFamily: 'Montserrat',
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 14),
+
+                        Row(
+                          children: [
+                            Expanded(
+                              child: InkWell(
+                                onTap: () {
+                                  showModalBottomSheet(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    shape: const RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(20),
+                                      ),
+                                    ),
+                                    builder: (context) => ConnectPage(
+                                      onDeviceConnected: _onDeviceConnected,
+                                    ),
+                                  );
+                                },
+                                child: _statusChip(
+                                  context,
+                                  Icons.bluetooth_searching_rounded,
+                                  'Connect',
+                                  Colors.purple,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 7),
+                            Expanded(
+                              child: InkWell(
+                                onTap: _showFilterSheet,
+                                child: _statusChip(
+                                  context,
+                                  Icons.filter_alt,
+                                  'Filter $filterLife%',
+                                  Colors.blue,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 7),
+                            Expanded(
+                              child: InkWell(
+                                onTap: _showSettingsBottomSheet,
+                                child: _statusChip(
+                                  context,
+                                  Icons.settings_rounded,
+                                  'Settings',
+                                  Colors.blue,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        InkWell(
+                          onTap: _loadCurrentLocation,
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 11,
+                              vertical: 9,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: Colors.blue.withValues(alpha: 0.10),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(7),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.blue.withValues(alpha: 0.14),
+                                  ),
+                                  child: const Icon(
+                                    Icons.location_on_rounded,
+                                    color: Colors.blue,
+                                    size: 18,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Lokasi Saya',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 10,
+                                          fontFamily: 'Montserrat',
+                                        ),
+                                      ),
+                                      const SizedBox(height: 1),
+                                      Text(
+                                        locationName,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Colors.black87,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          fontFamily: 'Montserrat',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (isLocationLoading)
+                                  const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                else
+                                  const Icon(
+                                    Icons.refresh_rounded,
+                                    color: Colors.blue,
+                                    size: 18,
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            SizedBox(
+                              height: sensorAreaHeight,
+                              width: double.infinity,
+                              child: Center(
+                                child: AnimatedBuilder(
+                                  animation: scaleAnimation,
+                                  builder: (context, child) {
+                                    return Transform.scale(
+                                      scale: scaleAnimation.value,
+                                      child: Container(
+                                        width: outerSensorSize,
+                                        height: outerSensorSize,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: currentColor.withValues(
+                                            alpha: 0.25,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+
+                            SizedBox(
+                              width: innerSensorSize,
+                              height: innerSensorSize,
+                              child: PageView.builder(
+                                controller: pageController,
+                                itemCount: sensorData.length,
+                                onPageChanged: (index) {
+                                  setState(() {
+                                    currentIndex = index;
+                                  });
+                                },
+                                itemBuilder: (context, index) {
+                                  final item = sensorData[index];
+
+                                  return buildSensorCircle(
+                                    item['title'],
+                                    item['value'],
+                                    item['unit'],
+                                    item['color'],
+                                    size: innerSensorSize,
+                                  );
+                                },
+                              ),
+                            ),
+
+                            Positioned(
+                              left: isCompact ? 4 : 10,
+                              top: 8,
+                              child: Column(
+                                children: [
+                                  const Text(
+                                    'SPEED FAN',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blue,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Transform.scale(
+                                    scale: isCompact ? 0.78 : 0.88,
+                                    alignment: Alignment.topCenter,
+                                    child: DiamondMenuWidget(
+                                      deviceId: activeDeviceId,
+                                      isConnected: isConnected,
+                                      isPowerOn: isPowerOn,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            if (isLocationLoading)
-                              const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            else
-                              const Icon(
-                                Icons.refresh_rounded,
-                                color: Colors.blue,
-                                size: 18,
-                              ),
                           ],
                         ),
-                      ),
-                    ),
 
-                    const SizedBox(height: 12),
-
-                    Stack(
-                      alignment: Alignment.center,
-                      children: [
+                        const SizedBox(height: 4),
                         SizedBox(
-                          height: sensorAreaHeight,
-                          width: double.infinity,
-                          child: Center(
-                            child: AnimatedBuilder(
-                              animation: scaleAnimation,
-                              builder: (context, child) {
-                                return Transform.scale(
-                                  scale: scaleAnimation.value,
-                                  child: Container(
-                                    width: outerSensorSize,
-                                    height: outerSensorSize,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: currentColor.withValues(
-                                        alpha: 0.25,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-
-                        SizedBox(
-                          width: innerSensorSize,
-                          height: innerSensorSize,
-                          child: PageView.builder(
-                            controller: pageController,
-                            itemCount: sensorData.length,
-                            onPageChanged: (index) {
-                              setState(() {
-                                currentIndex = index;
-                              });
-                            },
-                            itemBuilder: (context, index) {
-                              final item = sensorData[index];
-
-                              return buildSensorCircle(
-                                item['title'],
-                                item['value'],
-                                item['unit'],
-                                item['color'],
-                                size: innerSensorSize,
-                              );
-                            },
-                          ),
-                        ),
-
-                        Positioned(
-                          left: isCompact ? 4 : 10,
-                          top: 8,
-                          child: Column(
+                          height: isCompact ? 112 : 120,
+                          child: Row(
                             children: [
-                              const Text(
-                                'SPEED FAN',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue,
+                              Expanded(
+                                child: buildMiniSensorCard(
+                                  icon: Icons.thermostat_rounded,
+                                  title: 'Temperature',
+                                  value: '${_sensorNumber(temperature)}°C',
+                                  color: Colors.orange,
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Transform.scale(
-                                scale: isCompact ? 0.78 : 0.88,
-                                alignment: Alignment.topCenter,
-                                child: DiamondMenuWidget(
-                                  deviceId: widget.deviceId,
-                                  isConnected: isConnected,
-                                  isPowerOn: isPowerOn,
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: buildMiniSensorCard(
+                                  icon: Icons.water_drop_rounded,
+                                  title: 'Humidity',
+                                  value: '${_sensorNumber(humidity)}%',
+                                  color: Colors.blue,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
+                        const SizedBox(height: 22),
 
-                    const SizedBox(height: 4),
-                    SizedBox(
-                      height: isCompact ? 112 : 120,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: buildMiniSensorCard(
-                              icon: Icons.thermostat_rounded,
-                              title: 'Temperature',
-                              value: '${_sensorNumber(temperature)}°C',
-                              color: Colors.orange,
-                            ),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              sensorLabel('PM2.5', Colors.lightBlue, 0),
+                              const SizedBox(width: 22),
+                              sensorLabel('CO2', Colors.orange, 2),
+                              const SizedBox(width: 22),
+                              sensorLabel('TVOC', Colors.purple, 3),
+                              const SizedBox(width: 22),
+                              sensorLabel('PM10', Colors.green, 1),
+                            ],
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: buildMiniSensorCard(
-                              icon: Icons.water_drop_rounded,
-                              title: 'Humidity',
-                              value: '${_sensorNumber(humidity)}%',
-                              color: Colors.blue,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 22),
+                        ),
 
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          sensorLabel('PM2.5', Colors.lightBlue, 0),
-                          const SizedBox(width: 22),
-                          sensorLabel('CO2', Colors.orange, 2),
-                          const SizedBox(width: 22),
-                          sensorLabel('TVOC', Colors.purple, 3),
-                          const SizedBox(width: 22),
-                          sensorLabel('PM10', Colors.green, 1),
-                        ],
-                      ),
-                    ),
+                        const SizedBox(height: 16),
 
-                    const SizedBox(height: 16),
+                        SizedBox(
+                          height: 190,
+                          child: Stack(
+                            children: [
+                              LineChart(
+                                LineChartData(
+                                  minX: 0,
+                                  maxX: 6,
+                                  maxY: 500,
+                                  minY: 0,
 
-                    SizedBox(
-                      height: 190,
-                      child: Stack(
-                        children: [
-                          LineChart(
-                            LineChartData(
-                              minX: 0,
-                              maxX: 6,
-                              maxY: 500,
-                              minY: 0,
+                                  gridData: const FlGridData(show: false),
 
-                              gridData: const FlGridData(show: false),
+                                  titlesData: FlTitlesData(
+                                    leftTitles: AxisTitles(
+                                      sideTitles: SideTitles(
+                                        showTitles: true,
+                                        interval: 100,
+                                        reservedSize: 40,
+                                        getTitlesWidget: (value, meta) {
+                                          return Text(
+                                            value.toInt().toString(),
+                                            style: const TextStyle(
+                                              color: Colors.black54,
+                                              fontSize: 9,
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
 
-                              titlesData: FlTitlesData(
-                                leftTitles: AxisTitles(
-                                  sideTitles: SideTitles(
-                                    showTitles: true,
-                                    interval: 100,
-                                    reservedSize: 40,
-                                    getTitlesWidget: (value, meta) {
-                                      return Text(
-                                        value.toInt().toString(),
-                                        style: const TextStyle(
-                                          color: Colors.black54,
-                                          fontSize: 9,
-                                        ),
-                                      );
-                                    },
+                                    bottomTitles: AxisTitles(
+                                      sideTitles: SideTitles(
+                                        showTitles: true,
+                                        interval: 1,
+                                        reservedSize: 28,
+                                        getTitlesWidget: (value, meta) {
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 8,
+                                            ),
+                                            child: Text(
+                                              _weekDayLabel(value),
+                                              style: const TextStyle(
+                                                color: Colors.black54,
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+
+                                    rightTitles: const AxisTitles(
+                                      sideTitles: SideTitles(showTitles: false),
+                                    ),
+
+                                    topTitles: const AxisTitles(
+                                      sideTitles: SideTitles(showTitles: false),
+                                    ),
                                   ),
+
+                                  borderData: FlBorderData(show: false),
+
+                                  lineBarsData: [
+                                    LineChartBarData(
+                                      spots: pm25Spots,
+                                      isCurved: true,
+                                      curveSmoothness: 0.4,
+                                      color: Colors.lightBlue,
+                                      barWidth: 0,
+                                      isStrokeCapRound: true,
+                                      dotData: const FlDotData(show: false),
+                                    ),
+
+                                    LineChartBarData(
+                                      spots: pm10Spots,
+                                      isCurved: true,
+                                      curveSmoothness: 0.4,
+                                      color: Colors.lightGreen,
+                                      barWidth: 0,
+                                      isStrokeCapRound: true,
+                                      dotData: const FlDotData(show: false),
+                                    ),
+
+                                    LineChartBarData(
+                                      spots: co2Spots,
+                                      isCurved: true,
+                                      curveSmoothness: 0.4,
+                                      color: Colors.orange,
+                                      barWidth: 0,
+                                      isStrokeCapRound: true,
+                                      dotData: const FlDotData(show: false),
+                                    ),
+
+                                    LineChartBarData(
+                                      spots: tvocSpots,
+                                      isCurved: true,
+                                      curveSmoothness: 0.4,
+                                      color: Colors.purple,
+                                      barWidth: 0,
+                                      isStrokeCapRound: true,
+                                      dotData: const FlDotData(show: false),
+                                    ),
+                                  ],
                                 ),
 
-                                bottomTitles: AxisTitles(
-                                  sideTitles: SideTitles(
-                                    showTitles: true,
-                                    interval: 1,
-                                    reservedSize: 28,
-                                    getTitlesWidget: (value, meta) {
-                                      return Padding(
-                                        padding: const EdgeInsets.only(top: 8),
-                                        child: Text(
-                                          _weekDayLabel(value),
-                                          style: const TextStyle(
-                                            color: Colors.black54,
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-
-                                rightTitles: const AxisTitles(
-                                  sideTitles: SideTitles(showTitles: false),
-                                ),
-
-                                topTitles: const AxisTitles(
-                                  sideTitles: SideTitles(showTitles: false),
-                                ),
+                                duration: const Duration(milliseconds: 500),
+                                curve: Curves.easeInOut,
                               ),
-
-                              borderData: FlBorderData(show: false),
-
-                              lineBarsData: [
-                                LineChartBarData(
-                                  spots: pm25Spots,
-                                  isCurved: true,
-                                  curveSmoothness: 0.4,
-                                  color: Colors.lightBlue,
-                                  barWidth: 0,
-                                  isStrokeCapRound: true,
-                                  dotData: const FlDotData(show: false),
-                                ),
-
-                                LineChartBarData(
-                                  spots: pm10Spots,
-                                  isCurved: true,
-                                  curveSmoothness: 0.4,
-                                  color: Colors.lightGreen,
-                                  barWidth: 0,
-                                  isStrokeCapRound: true,
-                                  dotData: const FlDotData(show: false),
-                                ),
-
-                                LineChartBarData(
-                                  spots: co2Spots,
-                                  isCurved: true,
-                                  curveSmoothness: 0.4,
-                                  color: Colors.orange,
-                                  barWidth: 0,
-                                  isStrokeCapRound: true,
-                                  dotData: const FlDotData(show: false),
-                                ),
-
-                                LineChartBarData(
-                                  spots: tvocSpots,
-                                  isCurved: true,
-                                  curveSmoothness: 0.4,
-                                  color: Colors.purple,
-                                  barWidth: 0,
-                                  isStrokeCapRound: true,
-                                  dotData: const FlDotData(show: false),
-                                ),
-                              ],
-                            ),
-
-                            duration: const Duration(milliseconds: 500),
-                            curve: Curves.easeInOut,
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                  ],
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -921,7 +996,7 @@ class _HomePageState extends State<HomePage>
     try {
       const deviceChannel = MethodChannel('com.DLabs.air_fresh/device');
       await deviceChannel.invokeMethod<void>('setDeviceId', {
-        'deviceId': widget.deviceId,
+        'deviceId': activeDeviceId,
       });
       const serviceChannel = MethodChannel('start_service');
       await serviceChannel.invokeMethod<void>('startForegroundService');
@@ -930,20 +1005,37 @@ class _HomePageState extends State<HomePage>
     }
   }
 
+  Future<void> _onDeviceConnected(String deviceId) async {
+    if (!mounted || deviceId.isEmpty) return;
+
+    final normalizedDeviceId = deviceId.trim();
+    setState(() {
+      activeDeviceId = normalizedDeviceId;
+      firebaseService = FirebaseService(deviceId: activeDeviceId);
+    });
+
+    final saved = await DeviceStorage.saveDeviceId(normalizedDeviceId);
+    if (!saved) {
+      debugPrint(
+        '[HOME] Device ID gagal disimpan, tetapi listener tetap dijalankan.',
+      );
+    }
+
+    await _startDeviceDataListeners();
+  }
+
   void _showFilterSheet() {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => FilterPage(
-        deviceId: widget.deviceId,
-        isConnected: isConnected,
-      ),
+      builder: (_) =>
+          FilterPage(deviceId: activeDeviceId, isConnected: isConnected),
     );
   }
 
   Future<void> _sendPowerCommand() async {
-    if (!isConnected || widget.deviceId.isEmpty) {
+    if (!isConnected || activeDeviceId.isEmpty) {
       showModernDialog(
         context: context,
         title: 'AirFresh Offline',
@@ -962,9 +1054,9 @@ class _HomePageState extends State<HomePage>
       if (mounted) setState(() => isPowerOn = nextPowerState);
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Perintah power gagal: $error')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Perintah power gagal: $error')));
       }
     } finally {
       if (mounted) setState(() => isPowerBusy = false);
@@ -997,16 +1089,20 @@ class _HomePageState extends State<HomePage>
                       ),
                     ),
                     ListTile(
-                      leading: const Icon(Icons.wifi_off_rounded,
-                          color: Colors.blue),
+                      leading: const Icon(
+                        Icons.wifi_off_rounded,
+                        color: Colors.blue,
+                      ),
                       title: const Text('Lupakan Jaringan'),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => _forgetNetwork(sheetContext),
                     ),
                     const Divider(height: 1),
                     ListTile(
-                      leading: const Icon(Icons.ac_unit_rounded,
-                          color: Colors.blue),
+                      leading: const Icon(
+                        Icons.ac_unit_rounded,
+                        color: Colors.blue,
+                      ),
                       title: const Text('Mode FAN'),
                       subtitle: Text(
                         isFanModeAutomatic ? 'Otomatis' : 'Manual',
@@ -1031,7 +1127,9 @@ class _HomePageState extends State<HomePage>
                             return;
                           }
                           try {
-                            await firebaseService.sendModeCommand(value ? 1 : 0);
+                            await firebaseService.sendModeCommand(
+                              value ? 1 : 0,
+                            );
                             await DeviceStorage.saveFanMode(value);
                             if (!mounted) return;
                             setState(() => isFanModeAutomatic = value);
@@ -1039,7 +1137,9 @@ class _HomePageState extends State<HomePage>
                           } catch (error) {
                             if (sheetContext.mounted) {
                               ScaffoldMessenger.of(sheetContext).showSnackBar(
-                                SnackBar(content: Text('Mode FAN gagal: $error')),
+                                SnackBar(
+                                  content: Text('Mode FAN gagal: $error'),
+                                ),
                               );
                             }
                           }
@@ -1048,8 +1148,10 @@ class _HomePageState extends State<HomePage>
                     ),
                     const Divider(height: 1),
                     ListTile(
-                      leading: const Icon(Icons.download_rounded,
-                          color: Colors.blue),
+                      leading: const Icon(
+                        Icons.download_rounded,
+                        color: Colors.blue,
+                      ),
                       title: const Text('Unduh data kualitas udara'),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => _exportCsv(sheetContext),
@@ -1065,12 +1167,12 @@ class _HomePageState extends State<HomePage>
   }
 
   Future<void> _forgetNetwork(BuildContext sheetContext) async {
-    if (!isConnected || widget.deviceId.isEmpty) {
+    if (activeDeviceId.isEmpty) {
       showModernDialog(
         context: sheetContext,
-        title: 'AirFresh Offline',
-        message: 'Perangkat harus online untuk melupakan jaringan.',
-        icon: Icons.wifi_off_rounded,
+        title: 'Perangkat Belum Dipilih',
+        message: 'Hubungkan atau pilih perangkat terlebih dahulu.',
+        icon: Icons.bluetooth_disabled_rounded,
         iconColor: Colors.redAccent,
       );
       return;
@@ -1098,21 +1200,65 @@ class _HomePageState extends State<HomePage>
     if (confirmed != true) return;
 
     try {
-      await firebaseService.sendBTControlCommand(1);
-      await Future<void>.delayed(const Duration(milliseconds: 1300));
+      // Pastikan perintah dimulai dari kondisi netral agar edge perintah terbaca.
       await firebaseService.sendBTControlCommand(0);
-      await DeviceStorage.clearAll();
-      if (sheetContext.mounted) Navigator.pop(sheetContext);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Perangkat akan restart')),
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      await firebaseService.sendBTControlCommand(1);
+      await Future<void>.delayed(const Duration(milliseconds: 1500));
+
+      // Firmware juga mengembalikan nilai ke 0 sebelum restart. Ini fallback
+      // agar perintah tidak tertinggal jika firmware terlambat membalas.
+      try {
+        await firebaseService.sendBTControlCommand(0);
+      } catch (error) {
+        debugPrint('[Forget network] Reset command sudah dikirim: $error');
+      }
+
+      await _disconnectActiveBluetoothDevice();
+      try {
+        const serviceChannel = MethodChannel('start_service');
+        await serviceChannel.invokeMethod<void>('stopForegroundService');
+      } on PlatformException catch (error) {
+        debugPrint(
+          '[Forget network] Gagal menghentikan service: ${error.message}',
         );
       }
+
+      await DeviceStorage.clearAll();
+      if (sheetContext.mounted) Navigator.pop(sheetContext);
+      if (!mounted) return;
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const HomePage(deviceId: '')),
+        (_) => false,
+      );
     } catch (error) {
       if (sheetContext.mounted) {
-        ScaffoldMessenger.of(sheetContext).showSnackBar(
-          SnackBar(content: Text('Perintah gagal: $error')),
-        );
+        ScaffoldMessenger.of(
+          sheetContext,
+        ).showSnackBar(SnackBar(content: Text('Perintah gagal: $error')));
+      }
+    }
+  }
+
+  Future<void> _disconnectActiveBluetoothDevice() async {
+    final targetId = activeDeviceId.toLowerCase();
+
+    for (final device in FlutterBluePlus.connectedDevices) {
+      final deviceName = device.platformName.toLowerCase();
+      final remoteId = device.remoteId.toString().toLowerCase();
+      final isActiveDevice =
+          deviceName == targetId ||
+          remoteId == targetId ||
+          deviceName.startsWith('airfresh_');
+
+      if (!isActiveDevice) continue;
+
+      try {
+        await device.disconnect();
+        debugPrint('[Bluetooth] Device diputus: ${device.platformName}');
+      } catch (error) {
+        debugPrint('[Bluetooth] Gagal disconnect: $error');
       }
     }
   }

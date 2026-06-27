@@ -1,0 +1,172 @@
+<svg width="390" height="844" viewBox="0 0 390 844" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#1D3557" flood-opacity="0.10"/>
+    </filter>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#2EA8E5" flood-opacity="0.20"/>
+    </filter>
+    <linearGradient id="bg" x1="195" y1="0" x2="195" y2="844" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FBFF"/>
+      <stop offset="1" stop-color="#EFF5FC"/>
+    </linearGradient>
+    <linearGradient id="blueBar" x1="0" y1="760" x2="390" y2="844" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4D97FF"/>
+      <stop offset="1" stop-color="#2476F2"/>
+    </linearGradient>
+    <linearGradient id="sensorGradient" x1="146" y1="276" x2="244" y2="418" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#35B7F4"/>
+      <stop offset="1" stop-color="#188CE0"/>
+    </linearGradient>
+    <style>
+      .font { font-family: Montserrat, Poppins, Arial, sans-serif; }
+      .label { fill:#7B8794; font-size:12px; }
+      .small { font-size:10px; }
+      .chipText { font-size:12px; font-weight:700; }
+      .title { fill:#101828; font-weight:800; }
+      .muted { fill:#667085; }
+      .blue { fill:#2E90FA; }
+    </style>
+  </defs>
+
+  <rect width="390" height="844" rx="34" fill="#101828"/>
+  <rect x="6" y="6" width="378" height="832" rx="30" fill="url(#bg)"/>
+
+  <!-- status bar -->
+  <text x="26" y="28" class="font" fill="#17233C" font-size="12" font-weight="700">16:53</text>
+  <rect x="314" y="20" width="18" height="10" rx="2" stroke="#17233C" stroke-width="1.4"/>
+  <rect x="334" y="23" width="3" height="4" rx="1" fill="#17233C"/>
+  <path d="M290 29C295 24 300 24 305 29" stroke="#17233C" stroke-width="1.6" stroke-linecap="round"/>
+  <circle cx="350" cy="25" r="5" fill="#17233C"/>
+
+  <!-- top header -->
+  <text x="22" y="62" class="font muted" font-size="13">Hello, Selamat Sore</text>
+  <text x="22" y="90" class="font title" font-size="22">Have a fresh day</text>
+
+  <g transform="translate(22 102)">
+    <rect x="0" y="-12" width="174" height="26" rx="13" fill="#EEF4FF"/>
+    <path d="M14 -2h9v8h-9z" fill="#12B76A"/>
+    <path d="M16 -5h5v3h-5z" fill="#12B76A"/>
+    <text x="32" y="6" class="font" fill="#475467" font-size="12" font-weight="700">AirFresh_a59005</text>
+  </g>
+
+  <g transform="translate(332 72)">
+    <circle cx="0" cy="0" r="22" fill="#E8F8EF"/>
+    <path d="M-9 2c1.6-6 6.7-9 12-8.4 5 .6 8.5 4.1 9 8.8 3 .4 5 2.5 5 5.1 0 3-2.4 5.5-5.6 5.5H-8.5c-3.7 0-6.5-2.6-6.5-6 0-3 2.3-5.5 6-5z" fill="#22C55E"/>
+    <path d="M-4 8l4 4 8-10" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- air quality -->
+  <text x="22" y="137" class="font" fill="#344054" font-size="15">Udara :</text>
+  <text x="80" y="137" class="font" fill="#12B76A" font-size="15" font-weight="800">BAIK</text>
+
+  <!-- chips -->
+  <g filter="url(#cardShadow)">
+    <rect x="22" y="152" width="105" height="36" rx="18" fill="#F4ECFF"/>
+    <text x="46" y="175" class="font chipText" fill="#9333EA">Connect</text>
+    <path d="M36 164l12 9-12 9v-18zm0 0l7 7m-7 11l7-7" stroke="#9333EA" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g filter="url(#cardShadow)">
+    <rect x="137" y="152" width="112" height="36" rx="18" fill="#EAF4FF"/>
+    <path d="M156 163h16l-6 7v6l-4 2v-8l-6-7z" fill="#2388E8"/>
+    <text x="178" y="175" class="font chipText" fill="#2388E8">Filter 100%</text>
+  </g>
+  <g filter="url(#cardShadow)">
+    <rect x="259" y="152" width="109" height="36" rx="18" fill="#EAF4FF"/>
+    <circle cx="279" cy="170" r="6" stroke="#2388E8" stroke-width="2"/>
+    <path d="M279 160v4m0 12v4m10-10h-4m-12 0h-4m7-7l-3-3m13 13l-3-3m0-7l3-3m-13 13l3-3" stroke="#2388E8" stroke-width="1.5" stroke-linecap="round"/>
+    <text x="295" y="175" class="font chipText" fill="#2388E8">Settings</text>
+  </g>
+
+  <!-- location card -->
+  <g filter="url(#cardShadow)">
+    <rect x="22" y="202" width="346" height="58" rx="16" fill="#EAF4FF"/>
+    <circle cx="48" cy="231" r="15" fill="#D6EBFF"/>
+    <path d="M48 220c-5 0-9 4-9 9 0 7 9 15 9 15s9-8 9-15c0-5-4-9-9-9zm0 12.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z" fill="#2388E8"/>
+    <text x="72" y="224" class="font muted small">Lokasi Saya</text>
+    <text x="72" y="243" class="font title" font-size="14">Mampir, Bogor</text>
+    <path d="M342 225a8 8 0 11-2.3-5.7M342 219v6h-6" stroke="#2388E8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- fan speed diamond -->
+  <text x="46" y="292" class="font" fill="#2388E8" font-size="10" font-weight="800">SPEED FAN</text>
+  <g transform="translate(78 335)" filter="url(#cardShadow)">
+    <path d="M0-34L34 0 0 34-34 0z" fill="#FFFFFF"/>
+    <path d="M0-25L25 0 0 25-25 0z" fill="#EAF4FF"/>
+    <circle cx="0" cy="-15" r="8" fill="#35B7F4"/>
+    <circle cx="15" cy="0" r="8" fill="#35B7F4"/>
+    <circle cx="0" cy="15" r="8" fill="#35B7F4"/>
+    <circle cx="-15" cy="0" r="8" fill="#35B7F4"/>
+    <circle cx="0" cy="0" r="9" fill="#2476F2"/>
+  </g>
+
+  <!-- central sensor -->
+  <circle cx="195" cy="350" r="108" fill="#2EA8E5" opacity="0.18"/>
+  <circle cx="195" cy="350" r="88" fill="#2EA8E5" opacity="0.16"/>
+  <g filter="url(#softShadow)">
+    <circle cx="195" cy="350" r="74" fill="url(#sensorGradient)"/>
+    <circle cx="195" cy="350" r="59" fill="#FFFFFF" opacity="0.12"/>
+    <text x="195" y="329" text-anchor="middle" class="font" fill="#FFFFFF" font-size="16" font-weight="800">PM2.5</text>
+    <text x="195" y="366" text-anchor="middle" class="font" fill="#FFFFFF" font-size="40" font-weight="900">51</text>
+    <text x="195" y="389" text-anchor="middle" class="font" fill="#EAF6FF" font-size="13" font-weight="700">µg/m³</text>
+  </g>
+
+  <!-- mini cards -->
+  <g filter="url(#cardShadow)">
+    <rect x="22" y="485" width="166" height="92" rx="22" fill="#FFFFFF"/>
+    <circle cx="52" cy="522" r="18" fill="#FFF1E6"/>
+    <path d="M52 506v27m0 0a8 8 0 100-16" stroke="#F97316" stroke-width="3" stroke-linecap="round"/>
+    <text x="82" y="518" class="font muted" font-size="12">Temperature</text>
+    <text x="82" y="548" class="font title" font-size="24">35.9°C</text>
+  </g>
+  <g filter="url(#cardShadow)">
+    <rect x="202" y="485" width="166" height="92" rx="22" fill="#FFFFFF"/>
+    <circle cx="232" cy="522" r="18" fill="#EAF4FF"/>
+    <path d="M232 506c8 10 12 16 12 23a12 12 0 11-24 0c0-7 4-13 12-23z" fill="#2388E8"/>
+    <text x="262" y="518" class="font muted" font-size="12">Humidity</text>
+    <text x="262" y="548" class="font title" font-size="24">61.2%</text>
+  </g>
+
+  <!-- legend -->
+  <g transform="translate(24 611)">
+    <circle cx="7" cy="7" r="5" fill="#38BDF8"/>
+    <text x="18" y="11" class="font" fill="#344054" font-size="12" font-weight="700">PM2.5</text>
+    <circle cx="91" cy="7" r="5" fill="#F97316"/>
+    <text x="102" y="11" class="font" fill="#344054" font-size="12" font-weight="700">CO2</text>
+    <circle cx="158" cy="7" r="5" fill="#A855F7"/>
+    <text x="169" y="11" class="font" fill="#344054" font-size="12" font-weight="700">TVOC</text>
+    <circle cx="246" cy="7" r="5" fill="#22C55E"/>
+    <text x="257" y="11" class="font" fill="#344054" font-size="12" font-weight="700">PM10</text>
+  </g>
+
+  <!-- chart card -->
+  <g filter="url(#cardShadow)">
+    <rect x="22" y="642" width="346" height="128" rx="22" fill="#FFFFFF"/>
+    <line x1="62" y1="676" x2="345" y2="676" stroke="#EEF2F6"/>
+    <line x1="62" y1="704" x2="345" y2="704" stroke="#EEF2F6"/>
+    <line x1="62" y1="732" x2="345" y2="732" stroke="#EEF2F6"/>
+    <text x="37" y="679" class="font label small">500</text>
+    <text x="37" y="707" class="font label small">250</text>
+    <text x="43" y="735" class="font label small">0</text>
+    <path d="M66 725C88 710 98 683 119 696C140 710 150 671 173 688C197 706 214 664 238 679C263 694 279 650 305 668C322 679 331 671 345 662" stroke="#38BDF8" stroke-width="3" stroke-linecap="round"/>
+    <path d="M66 732C94 720 104 718 128 724C151 730 165 710 188 716C212 722 229 704 253 711C279 719 304 701 344 708" stroke="#22C55E" stroke-width="3" stroke-linecap="round"/>
+    <path d="M66 717C96 694 119 704 146 682C170 663 197 677 222 651C251 622 286 642 344 611" stroke="#F97316" stroke-width="3" stroke-linecap="round"/>
+    <path d="M66 737C100 735 124 731 154 733C181 735 208 727 235 730C264 733 289 722 344 725" stroke="#A855F7" stroke-width="3" stroke-linecap="round"/>
+    <text x="68" y="755" class="font label small">Sen</text>
+    <text x="115" y="755" class="font label small">Sel</text>
+    <text x="160" y="755" class="font label small">Rab</text>
+    <text x="207" y="755" class="font label small">Kam</text>
+    <text x="253" y="755" class="font label small">Jum</text>
+    <text x="301" y="755" class="font label small">Sab</text>
+    <text x="338" y="755" class="font label small">Min</text>
+  </g>
+
+  <!-- bottom navigation -->
+  <path d="M6 762C6 747.6 17.6 736 32 736H147C157 736 163.4 744 168 753C173 763 181 769 195 769C209 769 217 763 222 753C226.6 744 233 736 243 736H358C372.4 736 384 747.6 384 762V808C384 824.6 370.6 838 354 838H36C19.4 838 6 824.6 6 808V762Z" fill="url(#blueBar)"/>
+  <text x="195" y="804" text-anchor="middle" class="font" fill="#FFFFFF" font-size="14" font-weight="800">AirFresh</text>
+  <g filter="url(#cardShadow)">
+    <circle cx="195" cy="738" r="31" fill="#2476F2"/>
+    <circle cx="195" cy="738" r="27" fill="#FFFFFF" opacity="0.12"/>
+    <path d="M195 721v20m-10-11a14 14 0 1020 0" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round"/>
+  </g>
+</svg>

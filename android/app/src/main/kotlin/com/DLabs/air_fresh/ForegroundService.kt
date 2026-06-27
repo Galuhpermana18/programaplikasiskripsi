@@ -259,7 +259,11 @@ class ForegroundService : Service() {
         Log.d("ForegroundService", "Service started with device: $deviceId")
         startForegroundServiceNotification()
         startListeningFirebase(deviceId)
-        scheduleDailyNotification()
+        try {
+            scheduleDailyNotification()
+        } catch (error: Exception) {
+            Log.e("AlarmManager", "Alarm harian gagal dijadwalkan", error)
+        }
         
         return START_STICKY
     }
@@ -308,7 +312,7 @@ class ForegroundService : Service() {
     
     private fun startListeningFirebase(deviceId: String) {
         val database = FirebaseDatabase.getInstance(
-            "https://airfresh-9fffa-default-rtdb.asia-southeast1.firebasedatabase.app/"
+            "https://airfreshskripsi-default-rtdb.asia-southeast1.firebasedatabase.app/"
         )
         
         val ref = database.getReference("Devices/$deviceId/sensors")
@@ -404,7 +408,7 @@ class ForegroundService : Service() {
             }
         }
         
-        alarmManager.setExactAndAllowWhileIdle(
+        alarmManager.setAndAllowWhileIdle(
             AlarmManager.RTC_WAKEUP,
             calendar.timeInMillis,
             pendingIntent

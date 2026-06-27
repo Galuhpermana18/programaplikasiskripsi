@@ -12,9 +12,9 @@ PmStatus getPmStatus(int pm25) {
     return PmStatus('NULL', Colors.blue);
   }
 
-  if (pm25 <= 50) {
+  if (pm25 <= 12) {
     return PmStatus('BAIK', const Color.fromARGB(255, 0, 228, 0));
-  } else if (pm25 <= 100) {
+  } else if (pm25 <= 35) {
     return PmStatus('SEDANG', const Color.fromARGB(255, 190, 190, 5));
   } else if (pm25 <= 150) {
     return PmStatus(

@@ -16,6 +16,7 @@ class MainActivity : FlutterActivity() {
         private const val CHANNEL_CSV = "airfresh/csv"
         private const val CHANNEL_AIR_QUALITY = "com.DLabs.air_fresh/air_quality"
         private const val CHANNEL_DEVICE = "com.DLabs.air_fresh/device"
+        private const val CHANNEL_ANDROID = "com.DLabs.air_fresh/android"
     }
     
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -25,6 +26,17 @@ class MainActivity : FlutterActivity() {
         setupCsvChannel(flutterEngine)
         setupAirQualityChannel(flutterEngine)
         setupDeviceChannel(flutterEngine)
+        setupAndroidChannel(flutterEngine)
+    }
+
+    private fun setupAndroidChannel(flutterEngine: FlutterEngine) {
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_ANDROID)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "getSdkInt" -> result.success(Build.VERSION.SDK_INT)
+                    else -> result.notImplemented()
+                }
+            }
     }
     
     // Channel 1: Start/Stop Service

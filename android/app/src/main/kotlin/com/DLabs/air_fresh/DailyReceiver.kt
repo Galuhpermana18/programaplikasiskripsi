@@ -61,7 +61,7 @@ class DailyReceiver : BroadcastReceiver() {
             }
         }
 
-        alarmManager.setExactAndAllowWhileIdle(
+        alarmManager.setAndAllowWhileIdle(
             AlarmManager.RTC_WAKEUP,
             calendar.timeInMillis,
             pendingIntent

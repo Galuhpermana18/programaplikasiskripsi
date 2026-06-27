@@ -9,12 +9,22 @@ class DeviceStorage {
   static const String _keyFanMode = 'fan_mode_switch';
   static const String _keyPowerState = 'power_state';
   static Future<bool> saveDeviceId(String deviceId) async {
+    final normalizedDeviceId = deviceId.trim();
+    if (normalizedDeviceId.isEmpty) {
+      debugPrint('[DeviceStorage] Device ID kosong, penyimpanan dibatalkan.');
+      return false;
+    }
+
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_keyDeviceId, deviceId);
-      debugPrint('Device ID saved: $deviceId');
-      return true;
-    } catch (e) {
+      final saved = await prefs.setString(_keyDeviceId, normalizedDeviceId);
+      debugPrint(
+        '[DeviceStorage] Device ID ${saved ? "tersimpan" : "gagal disimpan"}: '
+        '$normalizedDeviceId',
+      );
+      return saved;
+    } catch (error) {
+      debugPrint('[DeviceStorage] Gagal menyimpan Device ID: $error');
       return false;
     }
   }
@@ -22,9 +32,15 @@ class DeviceStorage {
   static Future<String?> loadDeviceId() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      String? deviceId = prefs.getString(_keyDeviceId);
+      final deviceId = prefs.getString(_keyDeviceId)?.trim();
+      if (deviceId == null || deviceId.isEmpty) {
+        debugPrint('[DeviceStorage] Belum ada Device ID yang tersimpan.');
+        return null;
+      }
+      debugPrint('[DeviceStorage] Device ID dimuat: $deviceId');
       return deviceId;
-    } catch (e) {
+    } catch (error) {
+      debugPrint('[DeviceStorage] Gagal memuat Device ID: $error');
       return null;
     }
   }

@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_database/firebase_database.dart';
 
+import 'Services/Firebase_service.dart';
 import 'ui/splashscrean.dart';
 import 'ui/home.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  FirebaseDatabase.instance.setPersistenceEnabled(true);
-  FirebaseDatabase.instance.setPersistenceCacheSizeBytes(10000000);
+  try {
+    await Firebase.initializeApp();
+    try {
+      airFreshDatabase.setPersistenceEnabled(true);
+      airFreshDatabase.setPersistenceCacheSizeBytes(10000000);
+    } catch (error) {
+      debugPrint('[Firebase] Persistence tidak dapat diaktifkan: $error');
+    }
+  } catch (error) {
+    debugPrint('[Firebase] Inisialisasi gagal: $error');
+  }
   runApp(const MyApp());
 }
 

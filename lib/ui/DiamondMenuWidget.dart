@@ -22,7 +22,7 @@ class DiamondMenuWidget extends StatefulWidget {
 }
 
 class DiamondMenuWidgetState extends State<DiamondMenuWidget> {
-  late final FirebaseService firebaseService;
+  late FirebaseService firebaseService;
   StreamSubscription<ToggleStatus>? _toggleSubscription;
   bool isMenuOpen = false;
   String? selectedLevel;
@@ -30,27 +30,40 @@ class DiamondMenuWidgetState extends State<DiamondMenuWidget> {
   @override
   void initState() {
     super.initState();
-    firebaseService = FirebaseService(deviceId: widget.deviceId);
-    if (widget.deviceId.isNotEmpty) {
-      _toggleSubscription = firebaseService.getToggleStream().listen((status) {
-        if (!mounted) return;
-        final level = switch (status.speed) {
-          1 => 'low',
-          2 => 'medium',
-          3 => 'high',
-          _ => null,
-        };
-        setState(() => selectedLevel = widget.isPowerOn ? level : null);
-      });
-    }
+    _bindFirebaseService(widget.deviceId);
   }
 
   @override
   void didUpdateWidget(covariant DiamondMenuWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.deviceId != widget.deviceId) {
+      _bindFirebaseService(widget.deviceId);
+    }
     if (oldWidget.isPowerOn && !widget.isPowerOn && selectedLevel != null) {
       setState(() => selectedLevel = null);
     }
+  }
+
+  void _bindFirebaseService(String deviceId) {
+    _toggleSubscription?.cancel();
+    firebaseService = FirebaseService(deviceId: deviceId);
+
+    if (deviceId.trim().isEmpty) return;
+
+    debugPrint(
+      '[Speed] Listener Control menggunakan path: '
+      '${firebaseService.controlPath}',
+    );
+    _toggleSubscription = firebaseService.getToggleStream().listen((status) {
+      if (!mounted) return;
+      final level = switch (status.speed) {
+        1 => 'low',
+        2 => 'medium',
+        3 => 'high',
+        _ => null,
+      };
+      setState(() => selectedLevel = widget.isPowerOn ? level : null);
+    });
   }
 
   @override
@@ -135,7 +148,8 @@ class DiamondMenuWidgetState extends State<DiamondMenuWidget> {
       showModernDialog(
         context: context,
         title: 'AirFresh Offline',
-        message: 'Perangkat belum terhubung. Hubungkan perangkat terlebih dahulu.',
+        message:
+            'Perangkat belum terhubung. Hubungkan perangkat terlebih dahulu.',
         icon: Icons.wifi_off_rounded,
         iconColor: Colors.redAccent,
       );

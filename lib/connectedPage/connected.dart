@@ -1,11 +1,23 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
+
+import '../Services/preferences.dart';
 import 'ConnectedDevicePage.dart';
 
+const String _airFreshServiceUuid = '5fcf4517-a37c-4c06-a5d0-d25ec3991ec7';
+const String _airFreshCharacteristicUuid =
+    'deb5483e-36e1-1991-b7f5-ea19941b17a2';
+const MethodChannel _androidChannel = MethodChannel(
+  'com.DLabs.air_fresh/android',
+);
+
 class ConnectPage extends StatefulWidget {
-  const ConnectPage({super.key});
+  const ConnectPage({super.key, this.onDeviceConnected});
+
+  final ValueChanged<String>? onDeviceConnected;
 
   @override
   State<ConnectPage> createState() => _ConnectPageState();
@@ -40,25 +52,39 @@ class _ConnectPageState extends State<ConnectPage> {
   }
 
   Future<void> _initializeApp() async {
-    await _requestPermissions();
+    final permissionsGranted = await _requestPermissions();
+    if (!permissionsGranted || !mounted) return;
     await _checkAndEnableBluetooth();
     _initBle();
   }
 
-  Future<void> _requestPermissions() async {
-    Map<Permission, PermissionStatus> statuses = await [
-      Permission.location,
-      Permission.bluetoothScan,
-      Permission.bluetoothConnect,
-    ].request();
+  Future<List<Permission>> _requiredBlePermissions() async {
+    try {
+      final sdkInt = await _androidChannel.invokeMethod<int>('getSdkInt') ?? 31;
+      return sdkInt >= 31
+          ? <Permission>[Permission.bluetoothScan, Permission.bluetoothConnect]
+          : <Permission>[Permission.location];
+    } on PlatformException {
+      return <Permission>[
+        Permission.location,
+        Permission.bluetoothScan,
+        Permission.bluetoothConnect,
+      ];
+    }
+  }
+
+  Future<bool> _requestPermissions() async {
+    final requiredPermissions = await _requiredBlePermissions();
+    final statuses = await requiredPermissions.request();
 
     for (var entry in statuses.entries) {
       if (!entry.value.isGranted) {
         _showPermissionDialog(entry.key);
-        return;
+        return false;
       }
     }
     debugPrint('All permissions granted');
+    return true;
   }
 
   void _showPermissionDialog(Permission permission) {
@@ -173,22 +199,10 @@ class _ConnectPageState extends State<ConnectPage> {
 
   Future<void> scan() async {
     if (!mounted) return;
+    if (!await _requestPermissions()) return;
+
     if (!isBluetoothEnabled) {
       _showBluetoothDialog();
-      return;
-    }
-
-    Map<Permission, PermissionStatus> permissions = await [
-      Permission.location,
-      Permission.bluetoothScan,
-      Permission.bluetoothConnect,
-    ].request();
-
-    if (!permissions.values.every((status) => status.isGranted)) {
-      _showErrorDialog(
-        'Izin Diperlukan',
-        'Izin Bluetooth & Lokasi diperlukan untuk scan perangkat.',
-      );
       return;
     }
 
@@ -219,7 +233,10 @@ class _ConnectPageState extends State<ConnectPage> {
     });
 
     try {
-      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 10));
+      await FlutterBluePlus.startScan(
+        withServices: <Guid>[Guid(_airFreshServiceUuid)],
+        timeout: const Duration(seconds: 10),
+      );
       await Future.delayed(const Duration(seconds: 10));
       await _stopScan();
       if (mounted) setState(() => _isScanning = false);
@@ -259,7 +276,7 @@ class _ConnectPageState extends State<ConnectPage> {
       for (var service in services) {
         for (var char in service.characteristics) {
           if (char.uuid.toString().toLowerCase() ==
-              'deb5483e-36e1-1991-b7f5-ea19941b17a2') {
+              _airFreshCharacteristicUuid) {
             characteristic = char;
             await char.setNotifyValue(true);
 
@@ -269,6 +286,10 @@ class _ConnectPageState extends State<ConnectPage> {
             String deviceId = device.platformName.isNotEmpty
                 ? device.platformName
                 : device.remoteId.toString();
+
+            await DeviceStorage.saveDeviceId(deviceId);
+            if (!mounted) return;
+            widget.onDeviceConnected?.call(deviceId);
 
             Navigator.pushReplacement(
               context,
@@ -388,115 +409,124 @@ class _ConnectPageState extends State<ConnectPage> {
       builder: (context, scrollController) => Align(
         alignment: Alignment.topCenter,
         child: Container(
-        width: screenWidth.clamp(0.0, 600.0),
-        padding: EdgeInsets.all(compact ? 14 : 20),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          children: [
-            Container(
-              width: 50,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Scan Perangkat',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _isScanning ? Colors.red : Colors.blue,
-                  ),
-                  onPressed: scan,
-                  icon: Icon(_isScanning ? Icons.stop : Icons.search, size: 20),
-                  label: Text(_isScanning ? 'Stop' : 'Scan'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            if (!_isScanning && scanResultList.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Text(
-                  'Ditemukan perangkat',
-                  style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+          width: screenWidth.clamp(0.0, 600.0),
+          padding: EdgeInsets.all(compact ? 14 : 20),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 50,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
-            Expanded(
-              child: _isScanning && scanResultList.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: compact ? 72 : 92,
-                            height: compact ? 72 : 92,
-                            child: const CircularProgressIndicator(
-                              strokeWidth: 5,
-                              color: Colors.blue,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          const Text(
-                            'Mencari perangkat...',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 16, color: Colors.grey),
-                          ),
-                        ],
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Scan Perangkat',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                       ),
-                    )
-                  : scanResultList.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.bluetooth_searching,
-                            size: 64,
-                            color: Colors.grey[400],
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Tidak ada perangkat ditemukan',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Tekan tombol Scan untuk memulai',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[500],
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      controller: scrollController,
-                      itemCount: scanResultList.length,
-                      itemBuilder: (context, index) =>
-                          buildDeviceListItem(scanResultList[index]),
                     ),
-            ),
-          ],
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _isScanning ? Colors.red : Colors.blue,
+                    ),
+                    onPressed: scan,
+                    icon: Icon(
+                      _isScanning ? Icons.stop : Icons.search,
+                      size: 20,
+                    ),
+                    label: Text(_isScanning ? 'Stop' : 'Scan'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              if (!_isScanning && scanResultList.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    'Ditemukan perangkat',
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  ),
+                ),
+              Expanded(
+                child: _isScanning && scanResultList.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: compact ? 72 : 92,
+                              height: compact ? 72 : 92,
+                              child: const CircularProgressIndicator(
+                                strokeWidth: 5,
+                                color: Colors.blue,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            const Text(
+                              'Mencari perangkat...',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : scanResultList.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.bluetooth_searching,
+                              size: 64,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Tidak ada perangkat ditemukan',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Tekan tombol Scan untuk memulai',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[500],
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: scrollController,
+                        itemCount: scanResultList.length,
+                        itemBuilder: (context, index) =>
+                            buildDeviceListItem(scanResultList[index]),
+                      ),
+              ),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }

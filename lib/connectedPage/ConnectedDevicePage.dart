@@ -297,6 +297,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage> {
           await widget.characteristic.write(
             encodedData,
             withoutResponse: false,
+            allowLongWrite: true,
             timeout: 10,
           );
           sent = true;
@@ -494,219 +495,226 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage> {
             child: Align(
               alignment: Alignment.topCenter,
               child: Container(
-              width: screenWidth.clamp(0.0, 600.0),
-              padding: EdgeInsets.all(screenWidth < 360 ? 14 : 20),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              child: SingleChildScrollView(
-                controller: scrollController,
-                child: Column(
-                  children: [
-                    Container(
-                      width: 50,
-                      height: 5,
-                      margin: const EdgeInsets.only(bottom: 20),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.bluetooth_connected,
-                          color: Colors.blue,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                widget.deviceName,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontFamily: 'Montserrat',
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              if (widget.deviceId.isNotEmpty)
-                                Text(
-                                  'ID: ${widget.deviceId}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[600],
-                                    fontFamily: 'Montserrat',
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Konfigurasi WiFi',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontFamily: 'Montserrat',
-                          fontWeight: FontWeight.bold,
+                width: screenWidth.clamp(0.0, 600.0),
+                padding: EdgeInsets.all(screenWidth < 360 ? 14 : 20),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                ),
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 50,
+                        height: 5,
+                        margin: const EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    TextField(
-                      controller: ssidController,
-                      decoration: InputDecoration(
-                        labelText: 'SSID',
-                        prefixIcon: const Icon(Icons.wifi, color: Colors.blue),
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.refresh, color: Colors.blue),
-                          onPressed: loadCurrentWifiSSID,
-                          tooltip: 'Refresh WiFi SSID',
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(25),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-                    TextField(
-                      controller: passwordController,
-                      obscureText: !isPasswordVisible,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        prefixIcon: const Icon(Icons.lock, color: Colors.blue),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            isPasswordVisible
-                                ? Icons.visibility
-                                : Icons.visibility_off,
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.bluetooth_connected,
                             color: Colors.blue,
                           ),
-                          onPressed: () {
-                            _safeSetState(() {
-                              isPasswordVisible = !isPasswordVisible;
-                            });
-                          },
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(25),
-                        ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  widget.deviceName,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontFamily: 'Montserrat',
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (widget.deviceId.isNotEmpty)
+                                  Text(
+                                    'ID: ${widget.deviceId}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                      fontFamily: 'Montserrat',
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 15),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Ingat WiFi ini?',
+                      const SizedBox(height: 20),
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Konfigurasi WiFi',
                           style: TextStyle(
-                            fontSize: 16.0,
+                            fontSize: 20,
                             fontFamily: 'Montserrat',
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        Switch(
-                          value: rememberWifi,
-                          activeColor: Colors.blue,
-                          onChanged: handleSwitchChanged,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 25),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          shape: RoundedRectangleBorder(
+                      ),
+                      const SizedBox(height: 20),
+                      TextField(
+                        controller: ssidController,
+                        decoration: InputDecoration(
+                          labelText: 'SSID',
+                          prefixIcon: const Icon(
+                            Icons.wifi,
+                            color: Colors.blue,
+                          ),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.refresh, color: Colors.blue),
+                            onPressed: loadCurrentWifiSSID,
+                            tooltip: 'Refresh WiFi SSID',
+                          ),
+                          border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(25),
                           ),
-                          elevation: 3,
                         ),
-                        onPressed: isLoading
-                            ? null
-                            : () async {
-                                final ssid = ssidController.text.trim();
-                                final password = passwordController.text.trim();
+                      ),
+                      const SizedBox(height: 15),
+                      TextField(
+                        controller: passwordController,
+                        obscureText: !isPasswordVisible,
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          prefixIcon: const Icon(
+                            Icons.lock,
+                            color: Colors.blue,
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              isPasswordVisible
+                                  ? Icons.visibility
+                                  : Icons.visibility_off,
+                              color: Colors.blue,
+                            ),
+                            onPressed: () {
+                              _safeSetState(() {
+                                isPasswordVisible = !isPasswordVisible;
+                              });
+                            },
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Ingat WiFi ini?',
+                            style: TextStyle(
+                              fontSize: 16.0,
+                              fontFamily: 'Montserrat',
+                            ),
+                          ),
+                          Switch(
+                            value: rememberWifi,
+                            activeColor: Colors.blue,
+                            onChanged: handleSwitchChanged,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 25),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(25),
+                            ),
+                            elevation: 3,
+                          ),
+                          onPressed: isLoading
+                              ? null
+                              : () async {
+                                  final ssid = ssidController.text.trim();
+                                  final password = passwordController.text
+                                      .trim();
 
-                                if (ssid.isEmpty || password.isEmpty) {
-                                  _showErrorSnackBar(
-                                    'SSID dan Password tidak boleh kosong',
-                                  );
-                                  return;
-                                }
-                                await sendDataToDevice(ssid, password);
-                                if (rememberWifi) {
-                                  await DeviceStorage.saveWifiCredentials(
-                                    ssid,
-                                    password,
-                                  );
-                                }
-                              },
-                        child: isLoading
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
+                                  if (ssid.isEmpty || password.isEmpty) {
+                                    _showErrorSnackBar(
+                                      'SSID dan Password tidak boleh kosong',
+                                    );
+                                    return;
+                                  }
+                                  await sendDataToDevice(ssid, password);
+                                  if (rememberWifi) {
+                                    await DeviceStorage.saveWifiCredentials(
+                                      ssid,
+                                      password,
+                                    );
+                                  }
+                                },
+                          child: isLoading
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text(
+                                  'Konek Wifi',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              )
-                            : const Text(
-                                'Konek Wifi',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    if (showCheckIcon)
-                      const Column(
-                        children: [
-                          Icon(
-                            Icons.check_circle,
-                            color: Colors.green,
-                            size: 60,
-                          ),
-                          SizedBox(height: 10),
-                          Text(
-                            'Berhasil terkirim!',
-                            style: TextStyle(
+                      const SizedBox(height: 20),
+                      if (showCheckIcon)
+                        const Column(
+                          children: [
+                            Icon(
+                              Icons.check_circle,
                               color: Colors.green,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                              size: 60,
                             ),
-                          ),
-                        ],
-                      ),
-                    if (showErrorIcon)
-                      const Column(
-                        children: [
-                          Icon(Icons.error, color: Colors.red, size: 60),
-                          SizedBox(height: 10),
-                          Text(
-                            'Gagal mengirim',
-                            style: TextStyle(
-                              color: Colors.red,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                            SizedBox(height: 10),
+                            Text(
+                              'Berhasil terkirim!',
+                              style: TextStyle(
+                                color: Colors.green,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                  ],
+                          ],
+                        ),
+                      if (showErrorIcon)
+                        const Column(
+                          children: [
+                            Icon(Icons.error, color: Colors.red, size: 60),
+                            SizedBox(height: 10),
+                            Text(
+                              'Gagal mengirim',
+                              style: TextStyle(
+                                color: Colors.red,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            ),
             ),
           );
         },

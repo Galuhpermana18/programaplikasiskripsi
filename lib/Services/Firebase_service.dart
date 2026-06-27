@@ -1,7 +1,16 @@
 import 'dart:async';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
+
+const String airFreshDatabaseUrl =
+    'https://airfreshskripsi-default-rtdb.asia-southeast1.firebasedatabase.app/';
+
+FirebaseDatabase get airFreshDatabase => FirebaseDatabase.instanceFor(
+  app: Firebase.app(),
+  databaseURL: airFreshDatabaseUrl,
+);
 
 class ToggleStatus {
   final int btControl;
@@ -43,13 +52,26 @@ class ToggleStatus {
 }
 
 class FirebaseService {
-  FirebaseService({required this.deviceId});
+  FirebaseService({required String deviceId}) : deviceId = deviceId.trim() {
+    if (kDebugMode) {
+      if (this.deviceId.isEmpty) {
+        debugPrint(
+          '[Firebase] Device ID kosong. Menunggu perangkat terhubung melalui BLE.',
+        );
+      } else {
+        debugPrint('[Firebase] Device ID: ${this.deviceId}');
+        debugPrint('[Firebase] Path sensor: $sensorsPath');
+      }
+    }
+  }
 
-  final FirebaseDatabase _database = FirebaseDatabase.instance;
+  final FirebaseDatabase _database = airFreshDatabase;
   final String deviceId;
 
   String get sensorsPath => 'Devices/$deviceId/sensors';
+  String get filterLifePath => 'Devices/$deviceId/filter/filterlife';
   String get controlPath => 'Devices/$deviceId/Control';
+  String get speedPath => '$controlPath/speed';
 
   Future<ToggleStatus> getToggleStatus() async {
     final snapshot = await _database.ref(controlPath).get();
@@ -67,15 +89,49 @@ class FirebaseService {
   }
 
   Stream<Map<String, dynamic>> getSensorStream() {
-    return _database.ref(sensorsPath).onValue.map((event) {
-      final value = event.snapshot.value;
-      if (value is! Map) return <String, dynamic>{};
-      return Map<String, dynamic>.from(value);
-    });
+    if (deviceId.isEmpty) {
+      if (kDebugMode) {
+        debugPrint(
+          '[Firebase] Pembacaan sensor dibatalkan karena Device ID kosong.',
+        );
+      }
+      return const Stream<Map<String, dynamic>>.empty();
+    }
+
+    final sensorReference = _database.ref(sensorsPath);
+
+    if (kDebugMode) {
+      debugPrint('[Firebase] Mulai membaca sensor: $sensorsPath');
+    }
+
+    return sensorReference.onValue
+        .map((event) {
+          final value = event.snapshot.value;
+          if (value is! Map) {
+            if (kDebugMode) {
+              debugPrint(
+                '[Firebase] Data sensor kosong/tidak valid pada $sensorsPath: $value',
+              );
+            }
+            return <String, dynamic>{};
+          }
+
+          final sensorData = Map<String, dynamic>.from(value);
+          if (kDebugMode) {
+            debugPrint('[Firebase] Data sensor diterima dari $sensorsPath');
+            debugPrint('[Firebase] Sensor: $sensorData');
+          }
+          return sensorData;
+        })
+        .handleError((Object error, StackTrace stackTrace) {
+          if (kDebugMode) {
+            debugPrint('[Firebase] Gagal membaca $sensorsPath: $error');
+          }
+        });
   }
 
   Stream<int> getFilterLifeStream() {
-    return _database.ref('$sensorsPath/filterlife').onValue.map((event) {
+    return _database.ref(filterLifePath).onValue.map((event) {
       final value = event.snapshot.value;
       if (value is num) return value.toInt();
       return int.tryParse('$value') ?? 0;
@@ -92,7 +148,7 @@ class FirebaseService {
       _safeWrite('$controlPath/mode', value, 'mode');
 
   Future<void> sendSpeedCommand(int value) =>
-      _safeWrite('$controlPath/speed', value, 'speed');
+      _safeWrite(speedPath, value, 'speed');
 
   Future<void> resetFilterCommand(int value) =>
       _safeWrite('$controlPath/resetfilter', value, 'reset filter');
@@ -103,10 +159,20 @@ class FirebaseService {
     String label, {
     int retryCount = 3,
   }) async {
+    if (deviceId.isEmpty) {
+      throw StateError('Device ID kosong. Penulisan $label dibatalkan.');
+    }
+
     Object? lastError;
     for (var attempt = 1; attempt <= retryCount; attempt++) {
       try {
+        if (kDebugMode) {
+          debugPrint('[Firebase] Menulis $label ke $path = $value');
+        }
         await _database.ref(path).set(value);
+        if (kDebugMode) {
+          debugPrint('[Firebase] $label berhasil ditulis ke $path');
+        }
         return;
       } catch (error) {
         lastError = error;
