@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'dart:async';
 
 import 'package:fl_chart/fl_chart.dart';
@@ -9,7 +9,10 @@ import 'package:geolocator/geolocator.dart';
 
 import '../Services/Firebase_service.dart';
 import '../Services/preferences.dart';
-import '../utils/pm_utils.dart';
+import '../utils/get_color_co2.dart';
+import '../utils/get_color_pm10.dart';
+import '../utils/get_color_pm25.dart';
+import '../utils/get_color_tvoc.dart';
 import '../connectedPage/Connected.dart';
 import '../widgets/showdialog_warning.dart';
 import 'DiamondMenuWidget.dart';
@@ -31,7 +34,8 @@ class _HomePageState extends State<HomePage>
   StreamSubscription<ToggleStatus>? toggleSubscription;
   StreamSubscription<int>? filterSubscription;
   Timer? connectionTimer;
-  DateTime? lastSensorUpdate;
+  DateTime? lastTimestampChange;
+  String? lastSensorTimestamp;
   String? timeCategory;
   bool isConnected = false;
   String activeDeviceId = '';
@@ -39,16 +43,12 @@ class _HomePageState extends State<HomePage>
   late PageController pageController;
   late AnimationController scaleAnimation;
   int pm25 = 0;
-  int co2 = 420;
-  double tvoc = 0.21;
-  int pm10 = 12;
+  int co2 = 0;
+  double tvoc = 0;
+  int pm10 = 0;
   double temperature = 0;
   double humidity = 0;
   int filterLife = 100;
-  List<FlSpot> pm25Spots = [];
-  List<FlSpot> co2Spots = [];
-  List<FlSpot> tvocSpots = [];
-  List<FlSpot> pm10Spots = [];
   int currentIndex = 0;
   bool isPowerOn = false;
   bool isPowerBusy = false;
@@ -61,15 +61,25 @@ class _HomePageState extends State<HomePage>
       'title': 'PM2.5',
       'value': '$pm25',
       'unit': 'µg/m³',
-      'color': const Color(0xFF2EA8E5),
+      'color': getPmColor(pm25),
     },
-    {'title': 'PM10', 'value': '$pm10', 'unit': 'µg/m³', 'color': Colors.green},
-    {'title': 'CO2', 'value': '$co2', 'unit': 'ppm', 'color': Colors.orange},
+    {
+      'title': 'PM10',
+      'value': '$pm10',
+      'unit': 'µg/m³',
+      'color': getPm10Color(pm10),
+    },
+    {
+      'title': 'eCO₂',
+      'value': '$co2',
+      'unit': 'ppm',
+      'color': getEco2Color(co2),
+    },
     {
       'title': 'TVOC',
-      'value': '$tvoc',
-      'unit': 'mg/m³',
-      'color': Colors.purple,
+      'value': _sensorNumber(tvoc),
+      'unit': 'ppb',
+      'color': getTvocColor(tvoc),
     },
   ];
 
@@ -94,7 +104,6 @@ class _HomePageState extends State<HomePage>
     )..repeat(reverse: true);
 
     timeCategory = _getTimeCategory();
-    loadChartData();
     _loadCurrentLocation();
     _initializeDeviceData();
   }
@@ -136,6 +145,8 @@ class _HomePageState extends State<HomePage>
     await filterSubscription?.cancel();
     await toggleSubscription?.cancel();
     connectionTimer?.cancel();
+    lastSensorTimestamp = null;
+    lastTimestampChange = null;
 
     firebaseService = FirebaseService(deviceId: activeDeviceId);
 
@@ -178,8 +189,8 @@ class _HomePageState extends State<HomePage>
       },
     );
 
-    connectionTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      final update = lastSensorUpdate;
+    connectionTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      final update = lastTimestampChange;
       final online =
           update != null &&
           DateTime.now().difference(update) <= const Duration(seconds: 5);
@@ -197,6 +208,28 @@ class _HomePageState extends State<HomePage>
       return;
     }
 
+    final timestamp = data['timestamp']?.toString().trim();
+    if (timestamp == null || timestamp.isEmpty) {
+      debugPrint('[Sensor heartbeat] Timestamp kosong, perangkat offline.');
+      _setConnectionState(false);
+      return;
+    }
+
+    final now = DateTime.now();
+    if (timestamp != lastSensorTimestamp) {
+      lastSensorTimestamp = timestamp;
+      lastTimestampChange = now;
+      debugPrint('[Sensor heartbeat] Timestamp berubah: $timestamp');
+    }
+
+    final timestampIsFresh =
+        lastTimestampChange != null &&
+        now.difference(lastTimestampChange!) <= const Duration(seconds: 5);
+    if (!timestampIsFresh) {
+      _setConnectionState(false);
+      return;
+    }
+
     setState(() {
       pm25 = _asDouble(data['pm25']).round();
       pm10 = _asDouble(data['pm10']).round();
@@ -204,7 +237,6 @@ class _HomePageState extends State<HomePage>
       tvoc = _asDouble(data['tvoc']);
       temperature = _asDouble(data['temperature'] ?? data['temp']);
       humidity = _asDouble(data['humidity'] ?? data['hum']);
-      lastSensorUpdate = DateTime.now();
       isConnected = true;
     });
     if (!scaleAnimation.isAnimating) {
@@ -224,9 +256,41 @@ class _HomePageState extends State<HomePage>
   }
 
   void _setConnectionState(bool value) {
-    if (!mounted || isConnected == value) return;
-    setState(() => isConnected = value);
-    if (!value) scaleAnimation.stop();
+    if (!mounted) return;
+
+    final sensorValuesNeedReset =
+        !value &&
+        (pm25 != 0 ||
+            pm10 != 0 ||
+            co2 != 0 ||
+            tvoc != 0 ||
+            temperature != 0 ||
+            humidity != 0);
+    if (isConnected == value && !sensorValuesNeedReset) return;
+
+    final wasConnected = isConnected;
+    setState(() {
+      isConnected = value;
+      if (!value) {
+        pm25 = 0;
+        pm10 = 0;
+        co2 = 0;
+        tvoc = 0;
+        temperature = 0;
+        humidity = 0;
+      }
+    });
+
+    if (!value) {
+      scaleAnimation.stop();
+      if (wasConnected) {
+        debugPrint(
+          '[Sensor heartbeat] Timestamp tidak berubah selama 5 detik; '
+          'data PM2.5, PM10, eCO₂, TVOC, suhu, dan kelembapan '
+          'direset ke 0.',
+        );
+      }
+    }
   }
 
   String _getTimeCategory() {
@@ -247,48 +311,6 @@ class _HomePageState extends State<HomePage>
     } else {
       return 'Selamat Malam';
     }
-  }
-
-  void loadChartData() {
-    pm25Spots = [
-      const FlSpot(0, 20),
-      const FlSpot(1, 35),
-      const FlSpot(2, 28),
-      const FlSpot(3, 40),
-      const FlSpot(4, 30),
-      const FlSpot(5, 38),
-      const FlSpot(6, 32),
-    ];
-
-    pm10Spots = [
-      const FlSpot(0, 15),
-      const FlSpot(1, 22),
-      const FlSpot(2, 18),
-      const FlSpot(3, 35),
-      const FlSpot(4, 26),
-      const FlSpot(5, 31),
-      const FlSpot(6, 24),
-    ];
-
-    co2Spots = [
-      const FlSpot(0, 200),
-      const FlSpot(1, 260),
-      const FlSpot(2, 240),
-      const FlSpot(3, 300),
-      const FlSpot(4, 280),
-      const FlSpot(5, 330),
-      const FlSpot(6, 290),
-    ];
-
-    tvocSpots = [
-      const FlSpot(0, 10),
-      const FlSpot(1, 15),
-      const FlSpot(2, 12),
-      const FlSpot(3, 18),
-      const FlSpot(4, 14),
-      const FlSpot(5, 20),
-      const FlSpot(6, 16),
-    ];
   }
 
   String _weekDayLabel(double value) {
@@ -427,7 +449,9 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
-    final PmStatus status = getPmStatus(pm25);
+    final PmStatus status = isConnected
+        ? getPmStatus(pm25)
+        : const PmStatus('NULL', Colors.blue);
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isCompact = screenWidth < 360;
     final horizontalPadding = isCompact ? 16.0 : 20.0;
@@ -798,13 +822,7 @@ class _HomePageState extends State<HomePage>
                           scrollDirection: Axis.horizontal,
                           child: Row(
                             children: [
-                              sensorLabel('PM2.5', Colors.lightBlue, 0),
-                              const SizedBox(width: 22),
-                              sensorLabel('CO2', Colors.orange, 2),
-                              const SizedBox(width: 22),
-                              sensorLabel('TVOC', Colors.purple, 3),
-                              const SizedBox(width: 22),
-                              sensorLabel('PM10', Colors.green, 1),
+                              sensorLabel('PM2.5', getPmColor(pm25), 0),
                             ],
                           ),
                         ),
@@ -876,47 +894,7 @@ class _HomePageState extends State<HomePage>
 
                                   borderData: FlBorderData(show: false),
 
-                                  lineBarsData: [
-                                    LineChartBarData(
-                                      spots: pm25Spots,
-                                      isCurved: true,
-                                      curveSmoothness: 0.4,
-                                      color: Colors.lightBlue,
-                                      barWidth: 0,
-                                      isStrokeCapRound: true,
-                                      dotData: const FlDotData(show: false),
-                                    ),
-
-                                    LineChartBarData(
-                                      spots: pm10Spots,
-                                      isCurved: true,
-                                      curveSmoothness: 0.4,
-                                      color: Colors.lightGreen,
-                                      barWidth: 0,
-                                      isStrokeCapRound: true,
-                                      dotData: const FlDotData(show: false),
-                                    ),
-
-                                    LineChartBarData(
-                                      spots: co2Spots,
-                                      isCurved: true,
-                                      curveSmoothness: 0.4,
-                                      color: Colors.orange,
-                                      barWidth: 0,
-                                      isStrokeCapRound: true,
-                                      dotData: const FlDotData(show: false),
-                                    ),
-
-                                    LineChartBarData(
-                                      spots: tvocSpots,
-                                      isCurved: true,
-                                      curveSmoothness: 0.4,
-                                      color: Colors.purple,
-                                      barWidth: 0,
-                                      isStrokeCapRound: true,
-                                      dotData: const FlDotData(show: false),
-                                    ),
-                                  ],
+                                  lineBarsData: const [],
                                 ),
 
                                 duration: const Duration(milliseconds: 500),
