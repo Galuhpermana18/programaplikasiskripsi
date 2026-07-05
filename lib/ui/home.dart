@@ -823,6 +823,12 @@ class _HomePageState extends State<HomePage>
                           child: Row(
                             children: [
                               sensorLabel('PM2.5', getPmColor(pm25), 0),
+                              const SizedBox(width: 22),
+                              sensorLabel('PM10', getPm10Color(pm10), 1),
+                              const SizedBox(width: 22),
+                              sensorLabel('eCO₂', getEco2Color(co2), 2),
+                              const SizedBox(width: 22),
+                              sensorLabel('TVOC', getTvocColor(tvoc), 3),
                             ],
                           ),
                         ),
