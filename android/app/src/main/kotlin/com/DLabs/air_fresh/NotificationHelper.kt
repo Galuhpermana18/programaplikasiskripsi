@@ -1,13 +1,26 @@
 package com.DLabs.air_fresh
+import android.Manifest
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 
 object NotificationHelper {
     fun showDailyAirQualityNotification(context: Context, title: String, message: String) {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
         val channelId = "air_quality_alert_channel"
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 

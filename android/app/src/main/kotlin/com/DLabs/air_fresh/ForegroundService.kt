@@ -222,13 +222,16 @@
 
 package com.DLabs.air_fresh
 
+import android.Manifest
 import android.app.*
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.os.*
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
@@ -243,8 +246,6 @@ class ForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         db = AirQualityDatabase(this)
-        getSharedPreferences("air_status_prefs", Context.MODE_PRIVATE)
-            .edit().putString("last_air_status", "").apply()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -315,24 +316,41 @@ class ForegroundService : Service() {
             "https://airfreshskripsi-default-rtdb.asia-southeast1.firebasedatabase.app/"
         )
         
-        val ref = database.getReference("Devices/$deviceId/sensors")
+        val ref = database.getReference("Devices/$deviceId")
         
         ref.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 if (snapshot.exists()) {
-                    val pm10 = snapshot.child("pm10").getValue(Int::class.java) ?: 0
-                    val co2 = snapshot.child("co2").getValue(Int::class.java) ?: 0
-                    val tvoc = snapshot.child("tvoc").getValue(Int::class.java) ?: 0
-                    val pm25 = snapshot.child("pm25").getValue(Int::class.java) ?: 0
-                    val filterLife = snapshot.child("filterlife").getValue(Int::class.java) ?: 100
+                    val sensors = snapshot.child("sensors")
+                    val pm10 = sensors.child("pm10").getValue(Int::class.java) ?: 0
+                    val co2 = sensors.child("co2").getValue(Int::class.java) ?: 0
+                    val tvoc = sensors.child("tvoc").getValue(Int::class.java) ?: 0
+                    val pm25 = sensors.child("pm25").getValue(Int::class.java) ?: 0
+                    val temperature = (sensors.child("temp").value as? Number)?.toDouble() ?: 0.0
+                    val humidity = (sensors.child("hum").value as? Number)?.toDouble() ?: 0.0
+                    val filterLife = snapshot.child("filter/filterlife")
+                        .getValue(Int::class.java) ?: 100
 
                     val prefs = getSharedPreferences("air_status_prefs", Context.MODE_PRIVATE)
                     val lastSavedValue = prefs.getString("last_saved_value_$deviceId", "")
-                    val newValue = "$pm25,$co2,$tvoc,$pm10,$filterLife"
+                    val newValue = "$pm25,$co2,$tvoc,$pm10,$temperature,$humidity,$filterLife"
 
                     if (newValue != lastSavedValue) {
-                        db.insertData(pm25, co2, tvoc, pm10, filterLife)
-                        Log.d("SQLite", "[$deviceId] Data saved: pm25=$pm25, co2=$co2, tvoc=$tvoc, pm10=$pm10, filterLife=$filterLife")
+                        db.insertData(
+                            pm25,
+                            co2,
+                            tvoc,
+                            pm10,
+                            temperature,
+                            humidity,
+                            filterLife
+                        )
+                        Log.d(
+                            "SQLite",
+                            "[$deviceId] Data saved: pm25=$pm25, pm10=$pm10, " +
+                                "co2=$co2, tvoc=$tvoc, temp=$temperature, hum=$humidity, " +
+                                "filterLife=$filterLife"
+                        )
                         prefs.edit().putString("last_saved_value_$deviceId", newValue).apply()
                     } else {
                         Log.d("SQLite", "[$deviceId] Data TIDAK disimpan karena tidak ada perubahan")
@@ -350,8 +368,7 @@ class ForegroundService : Service() {
                         prefs.edit().putBoolean("filter_warn_sent_$deviceId", false).apply()
                     }
                     
-                    // Cek kualitas udara untuk notifikasi
-                    // checkAirQualityAndNotify(pm25, pm10)
+                    checkAirQualityAndNotify(pm25, pm10)
                 }
             }
 
@@ -387,6 +404,31 @@ class ForegroundService : Service() {
     //     }
     // }
 
+    private fun checkAirQualityAndNotify(pm25: Int, pm10: Int) {
+        val prefs = getSharedPreferences("air_status_prefs", Context.MODE_PRIVATE)
+        val lastStatus = prefs.getString("last_air_status", "")
+
+        val status = when {
+            pm25 <= 9 -> "BAIK"
+            pm25 <= 35 -> "SEDANG"
+            pm25 <= 55 -> "TIDAK SEHAT UNTUK KELOMPOK SENSITIF"
+            pm25 <= 125 -> "TIDAK SEHAT"
+            pm25 <= 225 -> "SANGAT TIDAK SEHAT"
+            else -> "BERBAHAYA"
+        }
+
+        if (status != lastStatus) {
+            prefs.edit().putString("last_air_status", status).apply()
+
+            if (status != "BAIK") {
+                val message =
+                    "PM2.5: $pm25 µg/m³, PM10: $pm10 µg/m³\n" +
+                        "Status udara: $status"
+                showAirQualityNotification("Peringatan Kualitas Udara", message)
+            }
+        }
+    }
+
     private fun scheduleDailyNotification() {
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(this, DailyReceiver::class.java)
@@ -418,6 +460,11 @@ class ForegroundService : Service() {
     }
 
     private fun showAirQualityNotification(title: String, message: String) {
+        if (!notificationsAllowed()) {
+            Log.w("Notification", "Izin notifikasi belum diberikan")
+            return
+        }
+
         val channelId = "air_quality_alert_channel"
         val channelName = "Notifikasi Kualitas Udara"
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -449,6 +496,11 @@ class ForegroundService : Service() {
     }
 
     private fun showFilterNotification(title: String, message: String) {
+        if (!notificationsAllowed()) {
+            Log.w("Notification", "Izin notifikasi belum diberikan")
+            return
+        }
+
         val channelId = "filter_warning_channel"
         val channelName = "Peringatan Filter"
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -477,6 +529,14 @@ class ForegroundService : Service() {
             .build()
 
         notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+    }
+
+    private fun notificationsAllowed(): Boolean {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

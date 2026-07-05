@@ -49,6 +49,12 @@ class _HomePageState extends State<HomePage>
   double temperature = 0;
   double humidity = 0;
   int filterLife = 100;
+  static const int _maxChartPoints = 20;
+  final List<double> _pm25History = [];
+  final List<double> _pm10History = [];
+  final List<double> _co2History = [];
+  final List<double> _tvocHistory = [];
+  final List<String> _chartTimeLabels = [];
   int currentIndex = 0;
   bool isPowerOn = false;
   bool isPowerBusy = false;
@@ -147,6 +153,7 @@ class _HomePageState extends State<HomePage>
     connectionTimer?.cancel();
     lastSensorTimestamp = null;
     lastTimestampChange = null;
+    _clearChartData();
 
     firebaseService = FirebaseService(deviceId: activeDeviceId);
 
@@ -216,7 +223,8 @@ class _HomePageState extends State<HomePage>
     }
 
     final now = DateTime.now();
-    if (timestamp != lastSensorTimestamp) {
+    final timestampChanged = timestamp != lastSensorTimestamp;
+    if (timestampChanged) {
       lastSensorTimestamp = timestamp;
       lastTimestampChange = now;
       debugPrint('[Sensor heartbeat] Timestamp berubah: $timestamp');
@@ -230,14 +238,29 @@ class _HomePageState extends State<HomePage>
       return;
     }
 
+    final nextPm25 = _asDouble(data['pm25']).round();
+    final nextPm10 = _asDouble(data['pm10']).round();
+    final nextCo2 = _asDouble(data['co2']).round();
+    final nextTvoc = _asDouble(data['tvoc']);
+
     setState(() {
-      pm25 = _asDouble(data['pm25']).round();
-      pm10 = _asDouble(data['pm10']).round();
-      co2 = _asDouble(data['co2']).round();
-      tvoc = _asDouble(data['tvoc']);
+      pm25 = nextPm25;
+      pm10 = nextPm10;
+      co2 = nextCo2;
+      tvoc = nextTvoc;
       temperature = _asDouble(data['temperature'] ?? data['temp']);
       humidity = _asDouble(data['humidity'] ?? data['hum']);
       isConnected = true;
+
+      if (timestampChanged) {
+        _addChartReading(
+          timestamp: timestamp,
+          pm25Value: nextPm25.toDouble(),
+          pm10Value: nextPm10.toDouble(),
+          co2Value: nextCo2.toDouble(),
+          tvocValue: nextTvoc,
+        );
+      }
     });
     if (!scaleAnimation.isAnimating) {
       scaleAnimation.repeat(reverse: true);
@@ -253,6 +276,88 @@ class _HomePageState extends State<HomePage>
     return value == value.roundToDouble()
         ? value.toInt().toString()
         : value.toStringAsFixed(1);
+  }
+
+  void _addChartReading({
+    required String timestamp,
+    required double pm25Value,
+    required double pm10Value,
+    required double co2Value,
+    required double tvocValue,
+  }) {
+    if (_chartTimeLabels.length >= _maxChartPoints) {
+      _chartTimeLabels.removeAt(0);
+      _pm25History.removeAt(0);
+      _pm10History.removeAt(0);
+      _co2History.removeAt(0);
+      _tvocHistory.removeAt(0);
+    }
+
+    _chartTimeLabels.add(timestamp.split(' ').last);
+    _pm25History.add(pm25Value);
+    _pm10History.add(pm10Value);
+    _co2History.add(co2Value);
+    _tvocHistory.add(tvocValue);
+  }
+
+  void _clearChartData() {
+    _chartTimeLabels.clear();
+    _pm25History.clear();
+    _pm10History.clear();
+    _co2History.clear();
+    _tvocHistory.clear();
+  }
+
+  List<double> get _selectedChartHistory {
+    if (currentIndex == 1) return _pm10History;
+    if (currentIndex == 2) return _co2History;
+    if (currentIndex == 3) return _tvocHistory;
+    return _pm25History;
+  }
+
+  List<FlSpot> get _currentChartSpots {
+    return _selectedChartHistory
+        .asMap()
+        .entries
+        .map((entry) => FlSpot(entry.key.toDouble(), entry.value))
+        .toList(growable: false);
+  }
+
+  double get _currentChartMaxY {
+    final history = _selectedChartHistory;
+    if (history.isEmpty) return 100;
+
+    var highest = history.first;
+    for (final value in history.skip(1)) {
+      if (value > highest) highest = value;
+    }
+    final paddedMaximum = highest * 1.2;
+    return paddedMaximum < 10 ? 10 : paddedMaximum;
+  }
+
+  Widget _chartBottomTitle(double value) {
+    final index = value.toInt();
+    if (value != index.toDouble() ||
+        index < 0 ||
+        index >= _chartTimeLabels.length) {
+      return const SizedBox.shrink();
+    }
+
+    final isVisible =
+        index == 0 || index == _chartTimeLabels.length - 1 || index % 5 == 0;
+    if (!isVisible) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Text(
+        _chartTimeLabels[index],
+        style: const TextStyle(
+          color: Colors.black54,
+          fontSize: 8,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
   }
 
   void _setConnectionState(bool value) {
@@ -310,27 +415,6 @@ class _HomePageState extends State<HomePage>
       return 'Selamat Sore Menjelang Malam';
     } else {
       return 'Selamat Malam';
-    }
-  }
-
-  String _weekDayLabel(double value) {
-    switch (value.toInt()) {
-      case 0:
-        return 'Sen';
-      case 1:
-        return 'Sel';
-      case 2:
-        return 'Rab';
-      case 3:
-        return 'Kam';
-      case 4:
-        return 'Jum';
-      case 5:
-        return 'Sab';
-      case 6:
-        return 'Min';
-      default:
-        return '';
     }
   }
 
@@ -452,6 +536,11 @@ class _HomePageState extends State<HomePage>
     final PmStatus status = isConnected
         ? getPmStatus(pm25)
         : const PmStatus('NULL', Colors.blue);
+    final chartSpots = _currentChartSpots;
+    final chartMaxY = _currentChartMaxY;
+    final chartMaxX = chartSpots.length > 1
+        ? (chartSpots.length - 1).toDouble()
+        : 1.0;
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isCompact = screenWidth < 360;
     final horizontalPadding = isCompact ? 16.0 : 20.0;
@@ -842,8 +931,8 @@ class _HomePageState extends State<HomePage>
                               LineChart(
                                 LineChartData(
                                   minX: 0,
-                                  maxX: 6,
-                                  maxY: 500,
+                                  maxX: chartMaxX,
+                                  maxY: chartMaxY,
                                   minY: 0,
 
                                   gridData: const FlGridData(show: false),
@@ -852,7 +941,7 @@ class _HomePageState extends State<HomePage>
                                     leftTitles: AxisTitles(
                                       sideTitles: SideTitles(
                                         showTitles: true,
-                                        interval: 100,
+                                        interval: chartMaxY / 5,
                                         reservedSize: 40,
                                         getTitlesWidget: (value, meta) {
                                           return Text(
@@ -870,21 +959,9 @@ class _HomePageState extends State<HomePage>
                                       sideTitles: SideTitles(
                                         showTitles: true,
                                         interval: 1,
-                                        reservedSize: 28,
+                                        reservedSize: 34,
                                         getTitlesWidget: (value, meta) {
-                                          return Padding(
-                                            padding: const EdgeInsets.only(
-                                              top: 8,
-                                            ),
-                                            child: Text(
-                                              _weekDayLabel(value),
-                                              style: const TextStyle(
-                                                color: Colors.black54,
-                                                fontSize: 9,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          );
+                                          return _chartBottomTitle(value);
                                         },
                                       ),
                                     ),
@@ -900,7 +977,27 @@ class _HomePageState extends State<HomePage>
 
                                   borderData: FlBorderData(show: false),
 
-                                  lineBarsData: const [],
+                                  lineBarsData: chartSpots.isEmpty
+                                      ? const []
+                                      : [
+                                          LineChartBarData(
+                                            spots: chartSpots,
+                                            isCurved: true,
+                                            curveSmoothness: 0.35,
+                                            color: currentColor,
+                                            barWidth: 3,
+                                            isStrokeCapRound: true,
+                                            dotData: const FlDotData(
+                                              show: false,
+                                            ),
+                                            belowBarData: BarAreaData(
+                                              show: true,
+                                              color: currentColor.withValues(
+                                                alpha: 0.08,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                 ),
 
                                 duration: const Duration(milliseconds: 500),

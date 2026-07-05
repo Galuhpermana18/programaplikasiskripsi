@@ -3,17 +3,20 @@ import android.content.ContentValues
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
+import android.os.Build
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
+import java.io.BufferedWriter
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
 
 class AirQualityDatabase(context: Context) :
-    SQLiteOpenHelper(context, "air_quality.db", null, 1) {
+    SQLiteOpenHelper(context, "air_quality.db", null, 2) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -25,6 +28,8 @@ class AirQualityDatabase(context: Context) :
                 co2 INTEGER NOT NULL,
                 tvoc INTEGER NOT NULL,
                 pm10 INTEGER NOT NULL,
+                temperature REAL NOT NULL DEFAULT 0,
+                humidity REAL NOT NULL DEFAULT 0,
                 filterLife INTEGER NOT NULL
             )
             """.trimIndent()
@@ -32,11 +37,21 @@ class AirQualityDatabase(context: Context) :
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS air_quality")
-        onCreate(db)
+        if (oldVersion < 2) {
+            db.execSQL("ALTER TABLE air_quality ADD COLUMN temperature REAL NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE air_quality ADD COLUMN humidity REAL NOT NULL DEFAULT 0")
+        }
     }
 
-    fun insertData(pm25: Int, co2: Int, tvoc: Int, pm10: Int, filterLife: Int) {
+    fun insertData(
+        pm25: Int,
+        co2: Int,
+        tvoc: Int,
+        pm10: Int,
+        temperature: Double,
+        humidity: Double,
+        filterLife: Int
+    ) {
         val db = writableDatabase
         val values = ContentValues().apply {
             put("timestamp", System.currentTimeMillis())
@@ -44,6 +59,8 @@ class AirQualityDatabase(context: Context) :
             put("co2", co2)
             put("tvoc", tvoc)
             put("pm10", pm10)
+            put("temperature", temperature)
+            put("humidity", humidity)
             put("filterLife", filterLife)
         }
         db.insert("air_quality", null, values)
@@ -184,33 +201,92 @@ class AirQualityDatabase(context: Context) :
         return count
     }
 
-    fun exportPmDataToCsv(context: Context) {
-        val fileName = "pm25_data.csv"
-        val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
-        val file = File(dir, fileName)
-
+    fun exportPmDataToCsv(context: Context): String {
+        val fileName = "air_quality_data.csv"
         val db = readableDatabase
-        val cursor = db.rawQuery("SELECT timestamp, pm25 FROM air_quality", null)
+        val cursor = db.rawQuery(
+            """
+            SELECT timestamp, pm25, pm10, co2, tvoc, temperature, humidity, filterLife
+            FROM air_quality
+            ORDER BY timestamp ASC
+            """.trimIndent(),
+            null
+        )
 
-        file.bufferedWriter().use { writer ->
-            writer.write("timestamp,pm25,status\n")
+        fun writeRows(writer: BufferedWriter) {
+            writer.write(
+                "timestamp,pm25_ug_m3,pm10_ug_m3,eco2_ppm,tvoc_ppb," +
+                    "temperature_c,humidity_percent,filter_life_percent,pm25_status\n"
+            )
             while (cursor.moveToNext()) {
                 val timestamp = cursor.getLong(0)
                 val pm25 = cursor.getInt(1)
+                val pm10 = cursor.getInt(2)
+                val co2 = cursor.getInt(3)
+                val tvoc = cursor.getInt(4)
+                val temperature = cursor.getDouble(5)
+                val humidity = cursor.getDouble(6)
+                val filterLife = cursor.getInt(7)
                 val status = getStatusFromPm25(pm25)
-                val date = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date(timestamp))
-                writer.write("$date,$pm25,$status\n")
+                val date = SimpleDateFormat(
+                    "yyyy-MM-dd HH:mm:ss",
+                    Locale.getDefault()
+                ).format(Date(timestamp))
+                writer.write(
+                    "$date,$pm25,$pm10,$co2,$tvoc,$temperature,$humidity," +
+                        "$filterLife,$status\n"
+                )
             }
         }
 
-        cursor.close()
-        db.close()
+        val savedLocation: String
+        try {
+            savedLocation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val resolver = context.contentResolver
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                    put(MediaStore.Downloads.MIME_TYPE, "text/csv")
+                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                    put(MediaStore.Downloads.IS_PENDING, 1)
+                }
+                val uri = resolver.insert(
+                    MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                    values
+                ) ?: error("Gagal membuat file CSV di folder Download")
 
-        Handler(Looper.getMainLooper()).post {
-            Toast.makeText(context, "CSV disimpan di: ${file.absolutePath}", Toast.LENGTH_LONG).show()
+                resolver.openOutputStream(uri)?.bufferedWriter()?.use(::writeRows)
+                    ?: error("Gagal membuka file CSV untuk ditulis")
+
+                values.clear()
+                values.put(MediaStore.Downloads.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+                "Download/$fileName"
+            } else {
+                @Suppress("DEPRECATION")
+                val downloadDir = Environment.getExternalStoragePublicDirectory(
+                    Environment.DIRECTORY_DOWNLOADS
+                )
+                if (!downloadDir.exists() && !downloadDir.mkdirs()) {
+                    error("Folder Download tidak dapat dibuat")
+                }
+                val file = File(downloadDir, fileName)
+                file.bufferedWriter().use(::writeRows)
+                file.absolutePath
+            }
+        } finally {
+            cursor.close()
+            db.close()
         }
 
-        // Log.d("AirQualityDB", "CSV exported to ${file.absolutePath}")
+        Handler(Looper.getMainLooper()).post {
+            Toast.makeText(
+                context,
+                "CSV disimpan di: $savedLocation",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+
+        return savedLocation
     }
 
     fun debugYesterdayData(): String {

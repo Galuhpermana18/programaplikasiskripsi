@@ -1,13 +1,8 @@
 package com.DLabs.air_fresh
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Build
-import android.os.Bundle
 import android.util.Log
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -21,29 +16,6 @@ class MainActivity : FlutterActivity() {
         private const val CHANNEL_CSV = "airfresh/csv"
         private const val CHANNEL_AIR_QUALITY = "com.DLabs.air_fresh/air_quality"
         private const val CHANNEL_DEVICE = "com.DLabs.air_fresh/device"
-        private const val CHANNEL_ANDROID = "com.DLabs.air_fresh/android"
-        private const val NOTIFICATION_PERMISSION_REQUEST = 1001
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        requestNotificationPermission()
-    }
-
-    private fun requestNotificationPermission() {
-        if (
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                NOTIFICATION_PERMISSION_REQUEST
-            )
-        }
     }
     
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -53,17 +25,6 @@ class MainActivity : FlutterActivity() {
         setupCsvChannel(flutterEngine)
         setupAirQualityChannel(flutterEngine)
         setupDeviceChannel(flutterEngine)
-        setupAndroidChannel(flutterEngine)
-    }
-
-    private fun setupAndroidChannel(flutterEngine: FlutterEngine) {
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL_ANDROID)
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "getSdkInt" -> result.success(Build.VERSION.SDK_INT)
-                    else -> result.notImplemented()
-                }
-            }
     }
     
     // Channel 1: Start/Stop Service
@@ -127,9 +88,9 @@ class MainActivity : FlutterActivity() {
                         "exportCsv" -> {
                             val db = AirQualityDatabase(this)
                             try {
-                                val location = db.exportPmDataToCsv(this)
-                                Log.d(TAG, "CSV exported successfully: $location")
-                                result.success("CSV berhasil disimpan di $location")
+                                db.exportPmDataToCsv(this)
+                                Log.d(TAG, "CSV exported successfully")
+                                result.success("CSV berhasil diekspor")
                             } catch (e: Exception) {
                                 Log.w(TAG, "CSV export failed: ${e.message}")
                                 result.error("EXPORT_FAILED", "Tidak ada data untuk diekspor", e.message)
@@ -240,101 +201,3 @@ class MainActivity : FlutterActivity() {
         Log.d(TAG, "MainActivity destroyed")
     }
 }
-
-// package com.DLabs.air_fresh
-
-// import android.content.Intent
-// import android.os.Build
-// import android.util.Log
-// import io.flutter.embedding.android.FlutterActivity
-// import io.flutter.embedding.engine.FlutterEngine
-// import io.flutter.plugin.common.MethodChannel
-
-// class MainActivity : FlutterActivity() {
-//     private var currentDeviceId: String = ""
-//     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-//         super.configureFlutterEngine(flutterEngine)
-        
-//         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "start_service")
-//             .setMethodCallHandler { call, result ->
-//                 when (call.method) {
-//                     "startForegroundService" -> {
-
-//                         if (currentDeviceId.isEmpty()) {
-//                             result.error("NO_DEVICE_ID", "Device ID belum di-set!", null)
-//                             return@setMethodCallHandler
-//                         }
-//                         val intent = Intent(this, ForegroundService::class.java)
-//                          intent.putExtra("DEVICE_ID", currentDeviceId)
-//                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-//                             startForegroundService(intent)
-//                         } else {
-//                             startService(intent)
-//                         }
-//                         result.success("Service started with device: $currentDeviceId")
-//                     }
-//                     "stopForegroundService" -> {
-//                         val intent = Intent(this, ForegroundService::class.java)
-//                         stopService(intent)
-//                         result.success("Service stopped")
-//                     }
-//                     "moveTaskToBack" -> {
-//                         moveTaskToBack(true)
-//                         result.success("Moved to background")
-//                     }
-//                     else -> {
-//                         result.notImplemented()
-//                     }
-//                 }
-//             }
-//         // 🔹 Channel baru untuk ekspor CSV
-//         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "airfresh/csv")
-//             .setMethodCallHandler { call, result ->
-//                 when (call.method) {
-//                     "exportCsv" -> {
-//                         val db = AirQualityDatabase(this)
-//                         db.exportPmDataToCsv(this)
-//                         result.success("CSV berhasil diekspor")
-//                     }
-//                     else -> result.notImplemented()
-//              }
-//          }
-//          MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.DLabs.air_fresh/air_quality")
-//             .setMethodCallHandler { call, result ->
-//                 if (call.method == "getPmDailyData") {
-//                     val db = AirQualityDatabase(this)
-//                     val results = db.getAveragePmPerDay(7)
-
-//                     val jsonArray = org.json.JSONArray()
-//                     for (day in results) {
-//                         val obj = org.json.JSONObject()
-//                         obj.put("timestamp", day.timestamp)
-//                         obj.put("pm25", day.pm25)
-//                         obj.put("pm10", day.pm10)
-//                         jsonArray.put(obj)
-//                     }
-//                     result.success(jsonArray.toString())
-//                 } else result.notImplemented()
-//             }
-
-//             MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.DLabs.air_fresh/device")
-//             .setMethodCallHandler { call, result ->
-//                 when (call.method) {
-//                     "setDeviceId" -> {
-//                         val deviceId = call.argument<String>("deviceId")
-//                         if (deviceId != null && deviceId.isNotEmpty()) {
-//                             currentDeviceId = deviceId
-//                             result.success("Device ID updated: $deviceId")
-//                         } else {
-//                             result.error("INVALID_ID", "Device ID kosong atau null", null)
-//                         }
-//                     }
-//                     "getDeviceId" -> {
-//                         result.success(currentDeviceId)
-//                     }
-//                     else -> result.notImplemented()
-//                 }
-//             }
-
-//     }
-// }
