@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -49,18 +50,27 @@ class _HomePageState extends State<HomePage>
   double temperature = 0;
   double humidity = 0;
   int filterLife = 100;
-  static const int _maxChartPoints = 20;
-  final List<double> _pm25History = [];
-  final List<double> _pm10History = [];
-  final List<double> _co2History = [];
-  final List<double> _tvocHistory = [];
-  final List<String> _chartTimeLabels = [];
+  final List<double> _pm25History = List<double>.filled(7, 0);
+  final List<double> _pm10History = List<double>.filled(7, 0);
+  final List<double> _co2History = List<double>.filled(7, 0);
+  final List<double> _tvocHistory = List<double>.filled(7, 0);
+  final List<String> _chartTimeLabels = const [
+    'Sen',
+    'Sel',
+    'Rab',
+    'Kam',
+    'Jum',
+    'Sab',
+    'Min',
+  ];
   int currentIndex = 0;
   bool isPowerOn = false;
   bool isPowerBusy = false;
   bool isFanModeAutomatic = false;
   bool isLocationLoading = false;
   String locationName = 'Mendeteksi lokasi...';
+  bool isDailyChartLoading = false;
+  Timer? dailyChartRefreshTimer;
 
   List<Map<String, dynamic>> get sensorData => [
     {
@@ -120,6 +130,7 @@ class _HomePageState extends State<HomePage>
     toggleSubscription?.cancel();
     filterSubscription?.cancel();
     connectionTimer?.cancel();
+    dailyChartRefreshTimer?.cancel();
     pageController.dispose();
     scaleAnimation.dispose();
     super.dispose();
@@ -151,6 +162,7 @@ class _HomePageState extends State<HomePage>
     await filterSubscription?.cancel();
     await toggleSubscription?.cancel();
     connectionTimer?.cancel();
+    dailyChartRefreshTimer?.cancel();
     lastSensorTimestamp = null;
     lastTimestampChange = null;
     _clearChartData();
@@ -161,6 +173,7 @@ class _HomePageState extends State<HomePage>
       '[HOME] Memulai listener Firebase untuk device: $activeDeviceId',
     );
     _initializeNativeService();
+    await _loadDailyChartData();
 
     await airFreshDatabase.ref(firebaseService.sensorsPath).keepSynced(true);
     sensorSubscription = firebaseService.getSensorStream().listen(
@@ -252,15 +265,7 @@ class _HomePageState extends State<HomePage>
       humidity = _asDouble(data['humidity'] ?? data['hum']);
       isConnected = true;
 
-      if (timestampChanged) {
-        _addChartReading(
-          timestamp: timestamp,
-          pm25Value: nextPm25.toDouble(),
-          pm10Value: nextPm10.toDouble(),
-          co2Value: nextCo2.toDouble(),
-          tvocValue: nextTvoc,
-        );
-      }
+      if (timestampChanged) _scheduleDailyChartRefresh();
     });
     if (!scaleAnimation.isAnimating) {
       scaleAnimation.repeat(reverse: true);
@@ -278,34 +283,68 @@ class _HomePageState extends State<HomePage>
         : value.toStringAsFixed(1);
   }
 
-  void _addChartReading({
-    required String timestamp,
-    required double pm25Value,
-    required double pm10Value,
-    required double co2Value,
-    required double tvocValue,
-  }) {
-    if (_chartTimeLabels.length >= _maxChartPoints) {
-      _chartTimeLabels.removeAt(0);
-      _pm25History.removeAt(0);
-      _pm10History.removeAt(0);
-      _co2History.removeAt(0);
-      _tvocHistory.removeAt(0);
+  void _clearChartData() {
+    for (var i = 0; i < 7; i++) {
+      _pm25History[i] = 0;
+      _pm10History[i] = 0;
+      _co2History[i] = 0;
+      _tvocHistory[i] = 0;
     }
-
-    _chartTimeLabels.add(timestamp.split(' ').last);
-    _pm25History.add(pm25Value);
-    _pm10History.add(pm10Value);
-    _co2History.add(co2Value);
-    _tvocHistory.add(tvocValue);
   }
 
-  void _clearChartData() {
-    _chartTimeLabels.clear();
-    _pm25History.clear();
-    _pm10History.clear();
-    _co2History.clear();
-    _tvocHistory.clear();
+  void _scheduleDailyChartRefresh() {
+    dailyChartRefreshTimer?.cancel();
+    dailyChartRefreshTimer = Timer(
+      const Duration(milliseconds: 800),
+      _loadDailyChartData,
+    );
+  }
+
+  Future<void> _loadDailyChartData() async {
+    if (!mounted || isDailyChartLoading) return;
+
+    setState(() => isDailyChartLoading = true);
+    try {
+      const channel = MethodChannel('com.DLabs.air_fresh/air_quality');
+      final response = await channel.invokeMethod<String>('getPmDailyData');
+      final decoded = jsonDecode(response ?? '[]');
+      if (decoded is! List) return;
+
+      final pm25Values = List<double>.filled(7, 0);
+      final pm10Values = List<double>.filled(7, 0);
+      final co2Values = List<double>.filled(7, 0);
+      final tvocValues = List<double>.filled(7, 0);
+
+      for (final item in decoded) {
+        if (item is! Map) continue;
+        final timestamp = _asDouble(item['timestamp']).toInt();
+        if (timestamp <= 0) continue;
+        final dayIndex =
+            DateTime.fromMillisecondsSinceEpoch(timestamp).weekday - 1;
+        if (dayIndex < 0 || dayIndex > 6) continue;
+
+        pm25Values[dayIndex] = _asDouble(item['pm25']);
+        pm10Values[dayIndex] = _asDouble(item['pm10']);
+        co2Values[dayIndex] = _asDouble(item['co2']);
+        tvocValues[dayIndex] = _asDouble(item['tvoc']);
+      }
+
+      if (!mounted) return;
+      setState(() {
+        for (var i = 0; i < 7; i++) {
+          _pm25History[i] = pm25Values[i];
+          _pm10History[i] = pm10Values[i];
+          _co2History[i] = co2Values[i];
+          _tvocHistory[i] = tvocValues[i];
+        }
+      });
+    } on PlatformException catch (error) {
+      debugPrint('[Daily chart] ${error.message}');
+    } catch (error) {
+      debugPrint('[Daily chart] Gagal memuat data harian: $error');
+    } finally {
+      if (mounted) setState(() => isDailyChartLoading = false);
+    }
   }
 
   List<double> get _selectedChartHistory {
@@ -342,10 +381,6 @@ class _HomePageState extends State<HomePage>
         index >= _chartTimeLabels.length) {
       return const SizedBox.shrink();
     }
-
-    final isVisible =
-        index == 0 || index == _chartTimeLabels.length - 1 || index % 5 == 0;
-    if (!isVisible) return const SizedBox.shrink();
 
     return Padding(
       padding: const EdgeInsets.only(top: 8),
@@ -538,9 +573,7 @@ class _HomePageState extends State<HomePage>
         : const PmStatus('NULL', Colors.blue);
     final chartSpots = _currentChartSpots;
     final chartMaxY = _currentChartMaxY;
-    final chartMaxX = chartSpots.length > 1
-        ? (chartSpots.length - 1).toDouble()
-        : 1.0;
+    const chartMaxX = 6.0;
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isCompact = screenWidth < 360;
     final horizontalPadding = isCompact ? 16.0 : 20.0;
@@ -987,8 +1020,8 @@ class _HomePageState extends State<HomePage>
                                             color: currentColor,
                                             barWidth: 3,
                                             isStrokeCapRound: true,
-                                            dotData: const FlDotData(
-                                              show: false,
+                                            dotData: FlDotData(
+                                              show: chartSpots.length == 1,
                                             ),
                                             belowBarData: BarAreaData(
                                               show: true,
@@ -1080,7 +1113,9 @@ class _HomePageState extends State<HomePage>
         'deviceId': activeDeviceId,
       });
       const serviceChannel = MethodChannel('start_service');
-      await serviceChannel.invokeMethod<void>('startForegroundService');
+      await serviceChannel.invokeMethod<void>('startForegroundService', {
+        'deviceId': activeDeviceId,
+      });
     } on PlatformException catch (error) {
       debugPrint('[Native service] ${error.message}');
     }

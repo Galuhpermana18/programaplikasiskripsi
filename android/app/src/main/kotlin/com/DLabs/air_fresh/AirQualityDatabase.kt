@@ -149,15 +149,18 @@ class AirQualityDatabase(context: Context) :
             val start = calendar.timeInMillis
 
             val cursor = db.rawQuery(
-                "SELECT AVG(pm25), AVG(co2), AVG(tvoc), AVG(pm10) FROM air_quality WHERE timestamp BETWEEN ? AND ?",
+                "SELECT AVG(pm25), AVG(co2), AVG(tvoc), AVG(pm10), COUNT(*) FROM air_quality WHERE timestamp BETWEEN ? AND ?",
                 arrayOf(start.toString(), end.toString())
             )
             if (cursor.moveToFirst()) {
-                val pm25 = cursor.getDouble(0).toFloat()
-                val co2 = cursor.getDouble(1).toFloat()
-                val tvoc = cursor.getDouble(2).toFloat()
-                val pm10 = cursor.getDouble(3).toFloat()
-                results.add(DailyPmData(calendar.timeInMillis, pm25, co2, tvoc, pm10))
+                val totalData = cursor.getInt(4)
+                if (totalData > 0) {
+                    val pm25 = cursor.getDouble(0).toFloat()
+                    val co2 = cursor.getDouble(1).toFloat()
+                    val tvoc = cursor.getDouble(2).toFloat()
+                    val pm10 = cursor.getDouble(3).toFloat()
+                    results.add(DailyPmData(calendar.timeInMillis, pm25, co2, tvoc, pm10))
+                }
             }
             cursor.close()
         }
@@ -200,7 +203,25 @@ class AirQualityDatabase(context: Context) :
         db.close()
         return count
     }
+    fun getLastDataTimestamp(): Long? {
+        val db = readableDatabase
 
+        val cursor = db.rawQuery(
+            "SELECT MAX(timestamp) FROM air_quality",
+            null
+        )
+
+        var timestamp: Long? = null
+
+        if (cursor.moveToFirst() && !cursor.isNull(0)) {
+            timestamp = cursor.getLong(0)
+        }
+
+        cursor.close()
+        db.close()
+
+        return timestamp
+    }
     fun exportPmDataToCsv(context: Context): String {
         val fileName = "air_quality_data.csv"
         val db = readableDatabase
@@ -214,38 +235,9 @@ class AirQualityDatabase(context: Context) :
         )
 
         fun writeRows(writer: BufferedWriter) {
-            var number = 1
-            val dateFormat = SimpleDateFormat(
-                "yyyy-MM-dd HH:mm:ss",
-                Locale.getDefault()
-            )
-
-            fun csvCell(value: Any?): String {
-                val text = value?.toString().orEmpty()
-                    .replace("\"", "\"\"")
-                    .replace("\r", " ")
-                    .replace("\n", " ")
-                return "\"$text\""
-            }
-
-            fun decimal(value: Double): String {
-                return String.format(Locale.US, "%.1f", value)
-            }
-
-            writer.write("sep=;\r\n")
             writer.write(
-                listOf(
-                    "No",
-                    "Waktu",
-                    "PM2.5 (ug/m3)",
-                    "PM10 (ug/m3)",
-                    "eCO2 (ppm)",
-                    "TVOC (ppb)",
-                    "Suhu (C)",
-                    "Kelembaban (%)",
-                    "Umur Filter (%)",
-                    "Status PM2.5"
-                ).joinToString(";") { csvCell(it) } + "\r\n"
+                "timestamp,pm25_ug_m3,pm10_ug_m3,eco2_ppm,tvoc_ppb," +
+                    "temperature_c,humidity_percent,filter_life_percent,pm25_status\n"
             )
             while (cursor.moveToNext()) {
                 val timestamp = cursor.getLong(0)
@@ -257,22 +249,14 @@ class AirQualityDatabase(context: Context) :
                 val humidity = cursor.getDouble(6)
                 val filterLife = cursor.getInt(7)
                 val status = getStatusFromPm25(pm25)
-                val date = dateFormat.format(Date(timestamp))
+                val date = SimpleDateFormat(
+                    "yyyy-MM-dd HH:mm:ss",
+                    Locale.getDefault()
+                ).format(Date(timestamp))
                 writer.write(
-                    listOf(
-                        number,
-                        date,
-                        pm25,
-                        pm10,
-                        co2,
-                        tvoc,
-                        decimal(temperature),
-                        decimal(humidity),
-                        filterLife,
-                        status
-                    ).joinToString(";") { csvCell(it) } + "\r\n"
+                    "$date,$pm25,$pm10,$co2,$tvoc,$temperature,$humidity," +
+                        "$filterLife,$status\n"
                 )
-                number++
             }
         }
 
@@ -325,7 +309,29 @@ class AirQualityDatabase(context: Context) :
 
         return savedLocation
     }
+    fun hasFreshDataYesterday(): Boolean {
+        val (start, end) = getYesterdayRange()
+        val db = readableDatabase
+        val cursor = db.rawQuery(
+            "SELECT COUNT(*) FROM air_quality WHERE timestamp BETWEEN ? AND ?",
+            arrayOf(start.toString(), end.toString())
+        )
 
+        var totalData = 0
+        if (cursor.moveToFirst()) {
+            totalData = cursor.getInt(0)
+        }
+
+        cursor.close()
+        db.close()
+
+        Log.d(
+            "AirQualityDB",
+            "Data kemarin: $totalData (${Date(start)} - ${Date(end)})"
+        )
+
+        return totalData > 0
+    }
     fun debugYesterdayData(): String {
         val (start, end) = getYesterdayRange()
         val db = readableDatabase
@@ -379,16 +385,16 @@ class AirQualityDatabase(context: Context) :
     }
 
     private fun getStatusFromPm25(pm25: Int): String {
-        return when {
-            pm25 in 0..9 -> "BAIK"
-            pm25 in 10..35 -> "SEDANG"
-            pm25 in 36..55 -> "TIDAK SEHAT UNTUK KELOMPOK SENSITIF"
-            pm25 in 56..125 -> "TIDAK SEHAT"
-            pm25 in 126..225 -> "SANGAT TIDAK SEHAT"
-            pm25 > 225 -> "BERBAHAYA"
-            else -> "Tidak diketahui"
-        }
+    return when {
+        pm25 in 0..12 -> "🙂 BAIK"
+        pm25 in 13..35 -> "😐 SEDANG"
+        pm25 in 36..55 -> "😌 TIDAK SEHAT BAGI YANG SENSITIF"
+        pm25 in 56..150 -> "😷 TIDAK SEHAT"
+        pm25 in 151..250 -> "🤢 SANGAT TIDAK SEHAT"
+        pm25 > 250 -> "BERBAHAYA"
+        else -> "Tidak diketahui"
     }
+}
 
 data class DailyPmData(
     val timestamp: Long,

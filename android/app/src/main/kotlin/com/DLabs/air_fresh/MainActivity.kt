@@ -23,10 +23,13 @@ class MainActivity : FlutterActivity() {
         private const val CHANNEL_DEVICE = "com.DLabs.air_fresh/device"
         private const val CHANNEL_ANDROID = "com.DLabs.air_fresh/android"
         private const val NOTIFICATION_PERMISSION_REQUEST = 1001
+        private const val PREFS_NAME = "airfresh_service_prefs"
+        private const val KEY_DEVICE_ID = "device_id"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        currentDeviceId = loadSavedDeviceId()
         requestNotificationPermission()
     }
 
@@ -73,6 +76,17 @@ class MainActivity : FlutterActivity() {
                 try {
                     when (call.method) {
                         "startForegroundService" -> {
+                            val requestedDeviceId = call.argument<String>("deviceId")
+                                ?.trim()
+                                .orEmpty()
+                            if (requestedDeviceId.isNotEmpty()) {
+                                saveDeviceId(requestedDeviceId)
+                            }
+
+                            if (currentDeviceId.isEmpty()) {
+                                currentDeviceId = loadSavedDeviceId()
+                            }
+
                             if (currentDeviceId.isEmpty()) {
                                 Log.w(TAG, "Attempt to start service without Device ID")
                                 result.error("NO_DEVICE_ID", "Device ID belum di-set!", null)
@@ -168,6 +182,8 @@ class MainActivity : FlutterActivity() {
                                 val obj = org.json.JSONObject().apply {
                                     put("timestamp", day.timestamp)
                                     put("pm25", day.pm25)
+                                    put("co2", day.co2)
+                                    put("tvoc", day.tvoc)
                                     put("pm10", day.pm10)
                                 }
                                 jsonArray.put(obj)
@@ -195,7 +211,7 @@ class MainActivity : FlutterActivity() {
                 try {
                     when (call.method) {
                         "setDeviceId" -> {
-                            val deviceId = call.argument<String>("deviceId")
+                            val deviceId = call.argument<String>("deviceId")?.trim()
                             
                             when {
                                 deviceId == null -> {
@@ -211,7 +227,7 @@ class MainActivity : FlutterActivity() {
                                     result.error("INVALID_ID", "Device ID terlalu pendek", null)
                                 }
                                 else -> {
-                                    currentDeviceId = deviceId
+                                    saveDeviceId(deviceId)
                                     Log.d(TAG, "Device ID updated: $deviceId")
                                     result.success("Device ID updated: $deviceId")
                                 }
@@ -219,6 +235,9 @@ class MainActivity : FlutterActivity() {
                         }
                         
                         "getDeviceId" -> {
+                            if (currentDeviceId.isEmpty()) {
+                                currentDeviceId = loadSavedDeviceId()
+                            }
                             Log.d(TAG, "Current Device ID: $currentDeviceId")
                             result.success(currentDeviceId)
                         }
@@ -233,6 +252,21 @@ class MainActivity : FlutterActivity() {
                     result.error("DEVICE_ERROR", e.message ?: "Unknown error", e.toString())
                 }
             }
+    }
+
+    private fun saveDeviceId(deviceId: String) {
+        currentDeviceId = deviceId
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .edit()
+            .putString(KEY_DEVICE_ID, deviceId)
+            .apply()
+    }
+
+    private fun loadSavedDeviceId(): String {
+        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+            .getString(KEY_DEVICE_ID, "")
+            ?.trim()
+            .orEmpty()
     }
     
     override fun onDestroy() {

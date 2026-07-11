@@ -47,8 +47,31 @@ flutter {
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.multidex:multidex:2.0.1")
+    implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
     implementation("com.google.firebase:firebase-database-ktx:20.3.0")
+    implementation("com.google.firebase:firebase-analytics-ktx:21.5.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.tensorflow:tensorflow-lite:2.14.0")
     implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+    // implementation("androidx.core:core-ktx:1.13.1")
+    // implementation("androidx.multidex:multidex:2.0.1")
+    // implementation("com.google.firebase:firebase-database-ktx:20.3.0")
+    // implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // implementation("org.tensorflow:tensorflow-lite:2.14.0")
+    // implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
 }
+
+// dependencies {
+//     implementation("androidx.core:core-ktx:1.13.1")
+//     implementation("androidx.multidex:multidex:2.0.1")
+//     implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
+//     implementation("com.google.firebase:firebase-database-ktx:20.3.0")
+//     implementation("com.google.firebase:firebase-analytics-ktx:21.5.0")
+//     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+//     implementation("org.tensorflow:tensorflow-lite:2.14.0")
+//     implementation("org.tensorflow:tensorflow-lite-support:0.4.4")
+//     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+//     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+// }
