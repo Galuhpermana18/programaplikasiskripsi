@@ -214,9 +214,38 @@ class AirQualityDatabase(context: Context) :
         )
 
         fun writeRows(writer: BufferedWriter) {
+            var number = 1
+            val dateFormat = SimpleDateFormat(
+                "yyyy-MM-dd HH:mm:ss",
+                Locale.getDefault()
+            )
+
+            fun csvCell(value: Any?): String {
+                val text = value?.toString().orEmpty()
+                    .replace("\"", "\"\"")
+                    .replace("\r", " ")
+                    .replace("\n", " ")
+                return "\"$text\""
+            }
+
+            fun decimal(value: Double): String {
+                return String.format(Locale.US, "%.1f", value)
+            }
+
+            writer.write("sep=;\r\n")
             writer.write(
-                "timestamp,pm25_ug_m3,pm10_ug_m3,eco2_ppm,tvoc_ppb," +
-                    "temperature_c,humidity_percent,filter_life_percent,pm25_status\n"
+                listOf(
+                    "No",
+                    "Waktu",
+                    "PM2.5 (ug/m3)",
+                    "PM10 (ug/m3)",
+                    "eCO2 (ppm)",
+                    "TVOC (ppb)",
+                    "Suhu (C)",
+                    "Kelembaban (%)",
+                    "Umur Filter (%)",
+                    "Status PM2.5"
+                ).joinToString(";") { csvCell(it) } + "\r\n"
             )
             while (cursor.moveToNext()) {
                 val timestamp = cursor.getLong(0)
@@ -228,14 +257,22 @@ class AirQualityDatabase(context: Context) :
                 val humidity = cursor.getDouble(6)
                 val filterLife = cursor.getInt(7)
                 val status = getStatusFromPm25(pm25)
-                val date = SimpleDateFormat(
-                    "yyyy-MM-dd HH:mm:ss",
-                    Locale.getDefault()
-                ).format(Date(timestamp))
+                val date = dateFormat.format(Date(timestamp))
                 writer.write(
-                    "$date,$pm25,$pm10,$co2,$tvoc,$temperature,$humidity," +
-                        "$filterLife,$status\n"
+                    listOf(
+                        number,
+                        date,
+                        pm25,
+                        pm10,
+                        co2,
+                        tvoc,
+                        decimal(temperature),
+                        decimal(humidity),
+                        filterLife,
+                        status
+                    ).joinToString(";") { csvCell(it) } + "\r\n"
                 )
+                number++
             }
         }
 
@@ -342,16 +379,16 @@ class AirQualityDatabase(context: Context) :
     }
 
     private fun getStatusFromPm25(pm25: Int): String {
-    return when {
-        pm25 in 0..12 -> "🙂 BAIK"
-        pm25 in 13..35 -> "😐 SEDANG"
-        pm25 in 36..55 -> "😌 TIDAK SEHAT BAGI YANG SENSITIF"
-        pm25 in 56..150 -> "😷 TIDAK SEHAT"
-        pm25 in 151..250 -> "🤢 SANGAT TIDAK SEHAT"
-        pm25 > 250 -> "BERBAHAYA"
-        else -> "Tidak diketahui"
+        return when {
+            pm25 in 0..9 -> "BAIK"
+            pm25 in 10..35 -> "SEDANG"
+            pm25 in 36..55 -> "TIDAK SEHAT UNTUK KELOMPOK SENSITIF"
+            pm25 in 56..125 -> "TIDAK SEHAT"
+            pm25 in 126..225 -> "SANGAT TIDAK SEHAT"
+            pm25 > 225 -> "BERBAHAYA"
+            else -> "Tidak diketahui"
+        }
     }
-}
 
 data class DailyPmData(
     val timestamp: Long,
