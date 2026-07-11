@@ -62,8 +62,10 @@ class DeviceStorage {
       await prefs.setString(_keySavedSsid, ssid);
       await prefs.setString(_keySavedPassword, password);
       await prefs.setBool(_keyRememberWifi, true);
+      debugPrint('[DeviceStorage] WiFi credentials tersimpan: $ssid');
       return true;
     } catch (e) {
+      debugPrint('[DeviceStorage] Gagal menyimpan WiFi credentials: $e');
       return false;
     }
   }
@@ -81,6 +83,20 @@ class DeviceStorage {
       return null;
     } catch (e) {
       return null;
+    }
+  }
+
+  static Future<bool> clearWifiCredentials() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_keySavedSsid);
+      await prefs.remove(_keySavedPassword);
+      await prefs.setBool(_keyRememberWifi, false);
+      debugPrint('[DeviceStorage] WiFi credentials dihapus.');
+      return true;
+    } catch (e) {
+      debugPrint('[DeviceStorage] Gagal menghapus WiFi credentials: $e');
+      return false;
     }
   }
 

@@ -1174,7 +1174,7 @@ class _HomePageState extends State<HomePage>
                         Icons.wifi_off_rounded,
                         color: Colors.blue,
                       ),
-                      title: const Text('Lupakan Jaringan'),
+                      title: const Text('Lupakan Jaringan Device'),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => _forgetNetwork(sheetContext),
                     ),
@@ -1262,7 +1262,7 @@ class _HomePageState extends State<HomePage>
     final confirmed = await showDialog<bool>(
       context: sheetContext,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Lupakan Jaringan'),
+        title: const Text('Lupakan Jaringan Device'),
         content: const Text(
           'Perangkat akan restart dan kembali ke mode konfigurasi Bluetooth.',
         ),
@@ -1305,9 +1305,13 @@ class _HomePageState extends State<HomePage>
         );
       }
 
-      await DeviceStorage.clearAll();
       if (sheetContext.mounted) Navigator.pop(sheetContext);
       if (!mounted) return;
+
+      debugPrint(
+        '[Forget network] Perintah lupakan jaringan dikirim ke Firebase. '
+        'Data WiFi tersimpan di aplikasi tetap dipertahankan.',
+      );
 
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(builder: (_) => const HomePage(deviceId: '')),

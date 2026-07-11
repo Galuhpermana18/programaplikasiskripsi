@@ -253,19 +253,39 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage> {
     }
   }
 
-  void handleSwitchChanged(bool value) {
-    _safeSetState(() => rememberWifi = value);
-
+  Future<void> handleSwitchChanged(bool value) async {
     if (value) {
-      if (ssidController.text.isNotEmpty &&
-          passwordController.text.isNotEmpty) {
-        DeviceStorage.saveWifiCredentials(
-          ssidController.text,
-          passwordController.text,
-        );
+      final credentials = await DeviceStorage.loadWifiCredentials();
+
+      if (mounted && !_isDisposed) {
+        _safeSetState(() {
+          rememberWifi = true;
+
+          final savedSsid = credentials?['ssid']?.toString() ?? '';
+          final savedPassword = credentials?['password']?.toString() ?? '';
+
+          if (savedSsid.isNotEmpty) {
+            ssidController.text = savedSsid;
+          }
+
+          if (savedPassword.isNotEmpty) {
+            passwordController.text = savedPassword;
+          }
+        });
       }
-    } else {
-      DeviceStorage.saveWifiCredentials('', '');
+
+      debugPrint(
+        '[WIFI] Remember WiFi ON, password ${passwordController.text.isEmpty ? "belum ada" : "berhasil dimuat"} dari preferences.',
+      );
+      return;
+    }
+
+    await DeviceStorage.clearWifiCredentials();
+    if (mounted && !_isDisposed) {
+      _safeSetState(() {
+        rememberWifi = false;
+        passwordController.clear();
+      });
     }
   }
 

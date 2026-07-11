@@ -368,7 +368,10 @@ class ForegroundService : Service() {
                         prefs.edit().putBoolean("filter_warn_sent_$deviceId", false).apply()
                     }
                     
-                    checkAirQualityAndNotify(pm25, pm10)
+                    Log.d(
+                        "Notification",
+                        "Notifikasi perubahan kategori PM2.5 dinonaktifkan. pm25=$pm25, pm10=$pm10"
+                    )
                 }
             }
 
