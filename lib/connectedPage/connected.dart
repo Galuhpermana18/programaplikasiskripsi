@@ -293,8 +293,13 @@ class _ConnectPageState extends State<ConnectPage> {
 
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                builder: (_) => ConnectedDevicePage(
+              PageRouteBuilder<void>(
+                opaque: false,
+                barrierColor: Colors.black.withValues(alpha: 0.35),
+                barrierDismissible: false,
+                transitionDuration: const Duration(milliseconds: 250),
+                reverseTransitionDuration: const Duration(milliseconds: 200),
+                pageBuilder: (_, _, _) => ConnectedDevicePage(
                   deviceName: device.platformName.isNotEmpty
                       ? device.platformName
                       : 'Unknown Device',
@@ -302,6 +307,18 @@ class _ConnectPageState extends State<ConnectPage> {
                   characteristic: characteristic!,
                   deviceId: deviceId,
                 ),
+                transitionsBuilder: (_, animation, _, child) {
+                  final position = Tween<Offset>(
+                    begin: const Offset(0, 1),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                    ),
+                  );
+                  return SlideTransition(position: position, child: child);
+                },
               ),
             );
             return;

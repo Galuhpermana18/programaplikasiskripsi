@@ -1209,7 +1209,7 @@ class _HomePageState extends State<HomePage>
                         Icons.wifi_off_rounded,
                         color: Colors.blue,
                       ),
-                      title: const Text('Lupakan Jaringan Device'),
+                      title: const Text('Putuskan Koneksi Perangkat'),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => _forgetNetwork(sheetContext),
                     ),
@@ -1297,7 +1297,7 @@ class _HomePageState extends State<HomePage>
     final confirmed = await showDialog<bool>(
       context: sheetContext,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Lupakan Jaringan Device'),
+        title: const Text('Putuskan Koneksi Perangkat'),
         content: const Text(
           'Perangkat akan restart dan kembali ke mode konfigurasi Bluetooth.',
         ),
