@@ -48,10 +48,13 @@ class DeviceStorage {
   static Future<bool> clearDeviceId() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_keyDeviceId);
-
-      return true;
-    } catch (e) {
+      final removed = await prefs.remove(_keyDeviceId);
+      debugPrint(
+        '[DeviceStorage] Device ID ${removed ? "dihapus" : "gagal dihapus"}.',
+      );
+      return removed;
+    } catch (error) {
+      debugPrint('[DeviceStorage] Gagal menghapus Device ID: $error');
       return false;
     }
   }

@@ -1340,12 +1340,19 @@ class _HomePageState extends State<HomePage>
         );
       }
 
+      // Hapus perangkat aktif agar Home tidak memuat kembali ID lama dari
+      // SharedPreferences ketika halaman dibuat ulang.
+      final deviceIdCleared = await DeviceStorage.clearDeviceId();
+      if (!deviceIdCleared) {
+        throw StateError('Gagal menghapus perangkat tersimpan.');
+      }
+
       if (sheetContext.mounted) Navigator.pop(sheetContext);
       if (!mounted) return;
 
       debugPrint(
         '[Forget network] Perintah lupakan jaringan dikirim ke Firebase. '
-        'Data WiFi tersimpan di aplikasi tetap dipertahankan.',
+        'Device ID dihapus dan data WiFi tetap dipertahankan.',
       );
 
       Navigator.of(context).pushAndRemoveUntil(
