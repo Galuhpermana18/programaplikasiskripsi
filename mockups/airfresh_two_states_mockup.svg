@@ -1,0 +1,306 @@
+<svg width="840" height="940" viewBox="0 0 840 940" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="phoneShadow" x="-20%" y="-10%" width="140%" height="130%">
+      <feDropShadow dx="0" dy="20" stdDeviation="24" flood-color="#101828" flood-opacity="0.18"/>
+    </filter>
+    <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="7" stdDeviation="12" flood-color="#1D3557" flood-opacity="0.10"/>
+    </filter>
+    <filter id="circleShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#2EA8E5" flood-opacity="0.18"/>
+    </filter>
+    <linearGradient id="screenBg" x1="0" y1="0" x2="0" y2="844" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7F9FC"/>
+      <stop offset="1" stop-color="#F7F9FC"/>
+    </linearGradient>
+    <linearGradient id="bottomBar" x1="0" y1="0" x2="360" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#448AFF"/>
+      <stop offset="1" stop-color="#448AFF"/>
+    </linearGradient>
+    <style>
+      .font { font-family: Montserrat, Arial, sans-serif; }
+      .muted { fill:#757575; }
+      .dark { fill:#151515; }
+      .title { fill:#151515; font-weight:700; }
+      .small { font-size:10px; }
+      .sensorTitle { font-size:14px; font-weight:700; }
+      .chipText { font-size:12px; font-weight:700; }
+    </style>
+  </defs>
+
+  <rect width="840" height="940" fill="#EEF4FF"/>
+  <text x="420" y="42" text-anchor="middle" class="font title" font-size="28">Mockup Tampilan Home AirFresh</text>
+  <text x="420" y="70" text-anchor="middle" class="font muted" font-size="15">Kondisi belum terkoneksi perangkat dan kondisi sudah terkoneksi dengan data sensor</text>
+
+  <!-- PHONE TEMPLATE: LEFT / BELUM TERKONEKSI -->
+  <g transform="translate(40 100)" filter="url(#phoneShadow)">
+    <rect width="360" height="800" rx="34" fill="#101828"/>
+    <rect x="6" y="6" width="348" height="788" rx="30" fill="url(#screenBg)"/>
+
+    <!-- Status bar -->
+    <text x="24" y="30" class="font" fill="#17233C" font-size="12" font-weight="700">16:53</text>
+    <path d="M270 30C275 25 280 25 285 30" stroke="#17233C" stroke-width="1.5" stroke-linecap="round"/>
+    <rect x="298" y="22" width="18" height="10" rx="2" stroke="#17233C" stroke-width="1.3"/>
+    <rect x="318" y="25" width="3" height="4" rx="1" fill="#17233C"/>
+    <circle cx="333" cy="27" r="5" fill="#17233C"/>
+
+    <!-- Header -->
+    <text x="22" y="66" class="font muted" font-size="14">Hello, Selamat Sore</text>
+    <text x="22" y="96" class="font title" font-size="22">Have a fresh day</text>
+    <g transform="translate(22 113)">
+      <path d="M2 3h12v10H2z" fill="#666666"/>
+      <path d="M5 0h6v3H5z" fill="#666666"/>
+      <text x="22" y="11" class="font muted" font-size="12" font-weight="600">Belum ada perangkat</text>
+    </g>
+    <g transform="translate(319 82)">
+      <path d="M-16 7C-7 -2 7 -2 16 7" stroke="#E53935" stroke-width="3" stroke-linecap="round"/>
+      <path d="M-8 15C-3 10 3 10 8 15" stroke="#E53935" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="0" cy="23" r="3.3" fill="#E53935"/>
+      <path d="M-17 27L17 -7" stroke="#E53935" stroke-width="2.7" stroke-linecap="round"/>
+    </g>
+
+    <!-- Air status -->
+    <text x="22" y="149" class="font dark" font-size="15">Udara :</text>
+    <text x="80" y="149" class="font" fill="#2196F3" font-size="15" font-weight="700">NULL</text>
+
+    <!-- Chips -->
+    <g transform="translate(22 166)">
+      <rect width="101" height="34" rx="17" fill="#F3E5F5"/>
+      <path d="M19 9l9 8-9 8V9zm0 0l6 6m-6 10l6-6" stroke="#9C27B0" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="40" y="22" class="font chipText" fill="#9C27B0">Connect</text>
+    </g>
+    <g transform="translate(130 166)">
+      <rect width="101" height="34" rx="17" fill="#EAF4FF"/>
+      <path d="M17 10h14l-5 7v5l-4 2v-7l-5-7z" fill="#2196F3"/>
+      <text x="40" y="22" class="font chipText" fill="#2196F3">Filter 0%</text>
+    </g>
+    <g transform="translate(238 166)">
+      <rect width="100" height="34" rx="17" fill="#EAF4FF"/>
+      <circle cx="19" cy="17" r="5.5" stroke="#2196F3" stroke-width="1.8"/>
+      <path d="M19 8v3m0 12v3m9-9h-3m-12 0h-3m15-6l-2 2m-10 10l-2 2m0-14l2 2m10 10l2 2" stroke="#2196F3" stroke-width="1.4" stroke-linecap="round"/>
+      <text x="38" y="22" class="font chipText" fill="#2196F3">Settings</text>
+    </g>
+
+    <!-- Location -->
+    <g transform="translate(22 211)">
+      <rect width="316" height="48" rx="16" fill="#EAF4FF" stroke="#D6ECFF"/>
+      <circle cx="24" cy="24" r="15" fill="#D7ECFF"/>
+      <path d="M24 14c-4.5 0-7 3.4-7 7.2C17 26.6 24 33 24 33s7-6.4 7-11.8c0-3.8-2.5-7.2-7-7.2zm0 9.4a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" fill="#2196F3"/>
+      <text x="50" y="20" class="font muted" font-size="10">Lokasi Saya</text>
+      <text x="50" y="36" class="font dark" font-size="13" font-weight="700">Mampir, Bogor</text>
+      <path d="M291 19a8 8 0 1 1-2.4-5.6" stroke="#2196F3" stroke-width="2" stroke-linecap="round"/>
+      <path d="M289 13h7v7" stroke="#2196F3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <!-- Sensor area -->
+    <g transform="translate(0 270)">
+      <circle cx="180" cy="120" r="105" fill="#2196F3" fill-opacity="0.25"/>
+      <circle cx="180" cy="120" r="73" fill="white" filter="url(#circleShadow)"/>
+      <text x="180" y="91" text-anchor="middle" class="font sensorTitle" fill="#2196F3">PM2.5</text>
+      <text x="180" y="137" text-anchor="middle" class="font" fill="#2196F3" font-size="42" font-weight="800">0</text>
+      <text x="180" y="166" text-anchor="middle" class="font muted" font-size="15">µg/m³</text>
+
+      <text x="23" y="18" class="font" fill="#2196F3" font-size="10" font-weight="700">SPEED FAN</text>
+      <g transform="translate(53 49) rotate(45)">
+        <rect x="-15" y="-15" width="30" height="30" rx="8" fill="#2196F3"/>
+      </g>
+      <text x="53" y="54" text-anchor="middle" class="font" fill="white" font-size="9" font-weight="700">LOW</text>
+      <g transform="translate(27 80) rotate(45)">
+        <rect x="-12" y="-12" width="24" height="24" rx="7" fill="#B3E5FC"/>
+      </g>
+      <g transform="translate(79 80) rotate(45)">
+        <rect x="-12" y="-12" width="24" height="24" rx="7" fill="#B3E5FC"/>
+      </g>
+    </g>
+
+    <!-- Mini sensor cards -->
+    <g transform="translate(22 512)" filter="url(#cardShadow)">
+      <rect width="148" height="106" rx="20" fill="white"/>
+      <circle cx="74" cy="35" r="18" fill="#FFF3E0"/>
+      <path d="M74 23v17M74 40a5 5 0 1 0 .1 0" stroke="#FF9800" stroke-width="2" stroke-linecap="round"/>
+      <text x="74" y="70" text-anchor="middle" class="font muted" font-size="12">Temperature</text>
+      <text x="74" y="91" text-anchor="middle" class="font dark" font-size="16" font-weight="800">0°C</text>
+    </g>
+    <g transform="translate(190 512)" filter="url(#cardShadow)">
+      <rect width="148" height="106" rx="20" fill="white"/>
+      <circle cx="74" cy="35" r="18" fill="#EAF4FF"/>
+      <path d="M74 19s-9 11-9 18a9 9 0 1 0 18 0c0-7-9-18-9-18z" fill="#2196F3"/>
+      <text x="74" y="70" text-anchor="middle" class="font muted" font-size="12">Humidity</text>
+      <text x="74" y="91" text-anchor="middle" class="font dark" font-size="16" font-weight="800">0%</text>
+    </g>
+
+    <!-- Sensor labels -->
+    <g transform="translate(22 645)">
+      <circle cx="8" cy="8" r="6" fill="#2196F3"/>
+      <text x="22" y="12" class="font dark" font-size="12" font-weight="700">PM2.5</text>
+      <circle cx="93" cy="8" r="6" fill="#2196F3"/>
+      <text x="107" y="12" class="font dark" font-size="12" font-weight="700">PM10</text>
+      <circle cx="174" cy="8" r="6" fill="#2196F3"/>
+      <text x="188" y="12" class="font dark" font-size="12" font-weight="700">eCO₂</text>
+      <circle cx="253" cy="8" r="6" fill="#2196F3"/>
+      <text x="267" y="12" class="font dark" font-size="12" font-weight="700">TVOC</text>
+    </g>
+
+    <!-- Static chart area -->
+    <g transform="translate(34 683)">
+      <text x="0" y="0" class="font muted" font-size="9">200</text>
+      <text x="0" y="25" class="font muted" font-size="9">150</text>
+      <text x="0" y="50" class="font muted" font-size="9">100</text>
+      <text x="5" y="75" class="font muted" font-size="9">50</text>
+      <text x="11" y="100" class="font muted" font-size="9">0</text>
+      <text x="39" y="119" class="font muted" font-size="9">Sen</text>
+      <text x="78" y="119" class="font muted" font-size="9">Sel</text>
+      <text x="118" y="119" class="font muted" font-size="9">Rab</text>
+      <text x="160" y="119" class="font muted" font-size="9">Kam</text>
+      <text x="204" y="119" class="font muted" font-size="9">Jum</text>
+      <text x="244" y="119" class="font muted" font-size="9">Sab</text>
+      <text x="282" y="119" class="font muted" font-size="9">Min</text>
+      <path d="M39 100H300" stroke="#D0D5DD" stroke-width="1"/>
+      <circle cx="39" cy="100" r="3" fill="#2196F3"/>
+      <circle cx="82" cy="100" r="3" fill="#2196F3"/>
+      <circle cx="125" cy="100" r="3" fill="#2196F3"/>
+      <circle cx="168" cy="100" r="3" fill="#2196F3"/>
+      <circle cx="211" cy="100" r="3" fill="#2196F3"/>
+      <circle cx="254" cy="100" r="3" fill="#2196F3"/>
+      <circle cx="297" cy="100" r="3" fill="#2196F3"/>
+    </g>
+
+    <!-- Bottom app bar + FAB -->
+    <path d="M6 742H128C139 742 145 732 149 723C155 710 169 701 180 701C191 701 205 710 211 723C215 732 221 742 232 742H354V794H6V742Z" fill="url(#bottomBar)"/>
+    <text x="180" y="779" text-anchor="middle" class="font" fill="white" font-size="14" font-weight="700">AirFresh</text>
+    <circle cx="180" cy="723" r="29" fill="#FF5252"/>
+    <path d="M180 709v15M171 716a13 13 0 1 0 18 0" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  </g>
+
+  <!-- RIGHT / TERKONEKSI -->
+  <g transform="translate(440 100)" filter="url(#phoneShadow)">
+    <rect width="360" height="800" rx="34" fill="#101828"/>
+    <rect x="6" y="6" width="348" height="788" rx="30" fill="url(#screenBg)"/>
+
+    <text x="24" y="30" class="font" fill="#17233C" font-size="12" font-weight="700">16:53</text>
+    <path d="M270 30C275 25 280 25 285 30" stroke="#17233C" stroke-width="1.5" stroke-linecap="round"/>
+    <rect x="298" y="22" width="18" height="10" rx="2" stroke="#17233C" stroke-width="1.3"/>
+    <rect x="318" y="25" width="3" height="4" rx="1" fill="#17233C"/>
+    <circle cx="333" cy="27" r="5" fill="#17233C"/>
+
+    <text x="22" y="66" class="font muted" font-size="14">Hello, Selamat Sore</text>
+    <text x="22" y="96" class="font title" font-size="22">Have a fresh day</text>
+    <g transform="translate(22 113)">
+      <path d="M2 3h12v10H2z" fill="#43A047"/>
+      <path d="M5 0h6v3H5z" fill="#43A047"/>
+      <text x="22" y="11" class="font muted" font-size="12" font-weight="600">AirFresh_a59005</text>
+    </g>
+    <g transform="translate(319 86)">
+      <path d="M-17 5c3-9 11-13 20-11 8 1 13 7 14 15 5 1 8 4 8 9 0 6-5 10-11 10h-31c-7 0-12-5-12-11 0-6 5-11 12-12z" fill="#4CAF50"/>
+      <path d="M-7 17l6 6 13-16" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <text x="22" y="149" class="font dark" font-size="15">Udara :</text>
+    <text x="80" y="149" class="font" fill="#FF7E00" font-size="15" font-weight="700">TIDAK SEHAT UNTUK SENSITIF</text>
+
+    <g transform="translate(22 166)">
+      <rect width="101" height="34" rx="17" fill="#F3E5F5"/>
+      <path d="M19 9l9 8-9 8V9zm0 0l6 6m-6 10l6-6" stroke="#9C27B0" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+      <text x="40" y="22" class="font chipText" fill="#9C27B0">Connect</text>
+    </g>
+    <g transform="translate(130 166)">
+      <rect width="101" height="34" rx="17" fill="#EAF4FF"/>
+      <path d="M17 10h14l-5 7v5l-4 2v-7l-5-7z" fill="#2196F3"/>
+      <text x="39" y="22" class="font chipText" fill="#2196F3">Filter 100%</text>
+    </g>
+    <g transform="translate(238 166)">
+      <rect width="100" height="34" rx="17" fill="#EAF4FF"/>
+      <circle cx="19" cy="17" r="5.5" stroke="#2196F3" stroke-width="1.8"/>
+      <path d="M19 8v3m0 12v3m9-9h-3m-12 0h-3m15-6l-2 2m-10 10l-2 2m0-14l2 2m10 10l2 2" stroke="#2196F3" stroke-width="1.4" stroke-linecap="round"/>
+      <text x="38" y="22" class="font chipText" fill="#2196F3">Settings</text>
+    </g>
+
+    <g transform="translate(22 211)">
+      <rect width="316" height="48" rx="16" fill="#EAF4FF" stroke="#D6ECFF"/>
+      <circle cx="24" cy="24" r="15" fill="#D7ECFF"/>
+      <path d="M24 14c-4.5 0-7 3.4-7 7.2C17 26.6 24 33 24 33s7-6.4 7-11.8c0-3.8-2.5-7.2-7-7.2zm0 9.4a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z" fill="#2196F3"/>
+      <text x="50" y="20" class="font muted" font-size="10">Lokasi Saya</text>
+      <text x="50" y="36" class="font dark" font-size="13" font-weight="700">Mampir, Bogor</text>
+      <path d="M291 19a8 8 0 1 1-2.4-5.6" stroke="#2196F3" stroke-width="2" stroke-linecap="round"/>
+      <path d="M289 13h7v7" stroke="#2196F3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <g transform="translate(0 270)">
+      <circle cx="180" cy="120" r="105" fill="#FF7E00" fill-opacity="0.25"/>
+      <circle cx="180" cy="120" r="73" fill="white" filter="url(#circleShadow)"/>
+      <text x="180" y="91" text-anchor="middle" class="font sensorTitle" fill="#FF7E00">PM2.5</text>
+      <text x="180" y="137" text-anchor="middle" class="font" fill="#FF7E00" font-size="42" font-weight="800">48</text>
+      <text x="180" y="166" text-anchor="middle" class="font muted" font-size="15">µg/m³</text>
+
+      <text x="23" y="18" class="font" fill="#2196F3" font-size="10" font-weight="700">SPEED FAN</text>
+      <g transform="translate(53 49) rotate(45)">
+        <rect x="-15" y="-15" width="30" height="30" rx="8" fill="#2196F3"/>
+      </g>
+      <text x="53" y="54" text-anchor="middle" class="font" fill="white" font-size="9" font-weight="700">MED</text>
+      <g transform="translate(27 80) rotate(45)">
+        <rect x="-12" y="-12" width="24" height="24" rx="7" fill="#B3E5FC"/>
+      </g>
+      <g transform="translate(79 80) rotate(45)">
+        <rect x="-12" y="-12" width="24" height="24" rx="7" fill="#B3E5FC"/>
+      </g>
+    </g>
+
+    <g transform="translate(22 512)" filter="url(#cardShadow)">
+      <rect width="148" height="106" rx="20" fill="white"/>
+      <circle cx="74" cy="35" r="18" fill="#FFF3E0"/>
+      <path d="M74 23v17M74 40a5 5 0 1 0 .1 0" stroke="#FF9800" stroke-width="2" stroke-linecap="round"/>
+      <text x="74" y="70" text-anchor="middle" class="font muted" font-size="12">Temperature</text>
+      <text x="74" y="91" text-anchor="middle" class="font dark" font-size="16" font-weight="800">35.9°C</text>
+    </g>
+    <g transform="translate(190 512)" filter="url(#cardShadow)">
+      <rect width="148" height="106" rx="20" fill="white"/>
+      <circle cx="74" cy="35" r="18" fill="#EAF4FF"/>
+      <path d="M74 19s-9 11-9 18a9 9 0 1 0 18 0c0-7-9-18-9-18z" fill="#2196F3"/>
+      <text x="74" y="70" text-anchor="middle" class="font muted" font-size="12">Humidity</text>
+      <text x="74" y="91" text-anchor="middle" class="font dark" font-size="16" font-weight="800">61.2%</text>
+    </g>
+
+    <g transform="translate(22 645)">
+      <circle cx="8" cy="8" r="6" fill="#FF7E00"/>
+      <text x="22" y="12" class="font dark" font-size="12" font-weight="700">PM2.5</text>
+      <circle cx="93" cy="8" r="6" fill="#00E400"/>
+      <text x="107" y="12" class="font dark" font-size="12" font-weight="700">PM10</text>
+      <circle cx="174" cy="8" r="6" fill="#00E400"/>
+      <text x="188" y="12" class="font dark" font-size="12" font-weight="700">eCO₂</text>
+      <circle cx="253" cy="8" r="6" fill="#90EE90"/>
+      <text x="267" y="12" class="font dark" font-size="12" font-weight="700">TVOC</text>
+    </g>
+
+    <g transform="translate(34 683)">
+      <text x="0" y="0" class="font muted" font-size="9">200</text>
+      <text x="0" y="25" class="font muted" font-size="9">150</text>
+      <text x="0" y="50" class="font muted" font-size="9">100</text>
+      <text x="5" y="75" class="font muted" font-size="9">50</text>
+      <text x="11" y="100" class="font muted" font-size="9">0</text>
+      <text x="39" y="119" class="font muted" font-size="9">Sen</text>
+      <text x="78" y="119" class="font muted" font-size="9">Sel</text>
+      <text x="118" y="119" class="font muted" font-size="9">Rab</text>
+      <text x="160" y="119" class="font muted" font-size="9">Kam</text>
+      <text x="204" y="119" class="font muted" font-size="9">Jum</text>
+      <text x="244" y="119" class="font muted" font-size="9">Sab</text>
+      <text x="282" y="119" class="font muted" font-size="9">Min</text>
+      <path d="M39 82 C82 74, 125 65, 168 58 S254 42, 297 47" stroke="#FF7E00" stroke-width="3" stroke-linecap="round" fill="none"/>
+      <path d="M39 82 C82 74, 125 65, 168 58 S254 42, 297 47 L297 100 L39 100Z" fill="#FF7E00" fill-opacity="0.08"/>
+      <circle cx="39" cy="82" r="3" fill="#FF7E00"/>
+      <circle cx="82" cy="74" r="3" fill="#FF7E00"/>
+      <circle cx="125" cy="65" r="3" fill="#FF7E00"/>
+      <circle cx="168" cy="58" r="3" fill="#FF7E00"/>
+      <circle cx="211" cy="49" r="3" fill="#FF7E00"/>
+      <circle cx="254" cy="42" r="3" fill="#FF7E00"/>
+      <circle cx="297" cy="47" r="3" fill="#FF7E00"/>
+    </g>
+
+    <path d="M6 742H128C139 742 145 732 149 723C155 710 169 701 180 701C191 701 205 710 211 723C215 732 221 742 232 742H354V794H6V742Z" fill="url(#bottomBar)"/>
+    <text x="180" y="779" text-anchor="middle" class="font" fill="white" font-size="14" font-weight="700">AirFresh</text>
+    <circle cx="180" cy="723" r="29" fill="#448AFF"/>
+    <path d="M180 709v15M171 716a13 13 0 1 0 18 0" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  </g>
+
+  <text x="220" y="920" text-anchor="middle" class="font" fill="#475467" font-size="16" font-weight="700">Belum terkoneksi perangkat</text>
+  <text x="620" y="920" text-anchor="middle" class="font" fill="#475467" font-size="16" font-weight="700">Sudah terkoneksi dan data sensor tampil</text>
+</svg>

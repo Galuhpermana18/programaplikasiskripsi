@@ -51,12 +51,13 @@ class DailyReceiver : BroadcastReceiver() {
 
     private fun getStatusFromPm25(pm25: Int): String {
         return when (pm25) {
-            in 0..12 -> "BAIK"
-            in 13..35 -> "SEDANG"
-            in 36..55 -> "TIDAK SEHAT BAGI YANG SENSITIF"
-            in 56..150 -> "TIDAK SEHAT"
-            in 151..250 -> "SANGAT TIDAK SEHAT"
-            else -> "BERBAHAYA"
+            in 0..9 -> "BAIK"
+            in 10..35 -> "SEDANG"
+            in 36..55 -> "TIDAK SEHAT UNTUK KELOMPOK SENSITIF"
+            in 56..125 -> "TIDAK SEHAT"
+            in 126..225 -> "SANGAT TIDAK SEHAT"
+            in 226..Int.MAX_VALUE -> "BERBAHAYA"
+            else -> "TIDAK DIKETAHUI"
         }
     }
 
