@@ -385,16 +385,16 @@ class AirQualityDatabase(context: Context) :
     }
 
     private fun getStatusFromPm25(pm25: Int): String {
-    return when {
-        pm25 in 0..9 -> "🙂 BAIK"
-        pm25 in 10..35 -> "😐 SEDANG"
-        pm25 in 36..55 -> "😌 TIDAK SEHAT UNTUK KELOMPOK SENSITIF"
-        pm25 in 56..125 -> "😷 TIDAK SEHAT"
-        pm25 in 126..225 -> "🤢 SANGAT TIDAK SEHAT"
-        pm25 >= 226 -> "BERBAHAYA"
-        else -> "Tidak diketahui"
+        return when {
+            pm25 in 0..9 -> "BAIK"
+            pm25 in 10..35 -> "SEDANG"
+            pm25 in 36..55 -> "TIDAK SEHAT UNTUK KELOMPOK SENSITIF"
+            pm25 in 56..125 -> "TIDAK SEHAT"
+            pm25 in 126..225 -> "SANGAT TIDAK SEHAT"
+            pm25 >= 226 -> "BERBAHAYA"
+            else -> "TIDAK DIKETAHUI"
+        }
     }
-}
 
 data class DailyPmData(
     val timestamp: Long,

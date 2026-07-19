@@ -13,7 +13,7 @@ Pm10Status getPm10Status(int pm10) {
   } else if (pm10 <= 50) {
     return const Pm10Status('BAIK', Color(0xFF00E400));
   } else if (pm10 <= 150) {
-    return const Pm10Status('SEDANG', Color(0xFFFFFF00));
+    return const Pm10Status('SEDANG', Color.fromARGB(255, 190, 190, 5));
   } else if (pm10 <= 350) {
     return const Pm10Status('TIDAK SEHAT', Color(0xFFFF0000));
   } else if (pm10 <= 420) {

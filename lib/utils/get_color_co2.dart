@@ -13,7 +13,7 @@ Eco2Status getEco2Status(int eco2) {
   } else if (eco2 <= 1000) {
     return const Eco2Status('BAIK', Color(0xFF00E400));
   } else if (eco2 <= 1500) {
-    return const Eco2Status('SEDANG', Color(0xFFFFFF00));
+    return const Eco2Status('SEDANG', Color.fromARGB(255, 190, 190, 5));
   } else {
     return const Eco2Status('BURUK', Color(0xFFFF0000));
   }

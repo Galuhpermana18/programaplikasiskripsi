@@ -13,7 +13,7 @@ PmStatus getPmStatus(int pm25) {
   } else if (pm25 <= 9) {
     return const PmStatus('BAIK', Color(0xFF00E400));
   } else if (pm25 <= 35) {
-    return const PmStatus('SEDANG', Color.fromARGB(255, 240, 240, 10));
+    return const PmStatus('SEDANG', Color.fromARGB(255, 190, 190, 5));
   } else if (pm25 <= 55) {
     return const PmStatus(
       'TIDAK SEHAT UNTUK KELOMPOK SENSITIF',
