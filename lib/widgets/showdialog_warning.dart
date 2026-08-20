@@ -14,9 +14,9 @@ Future<Future<Object?>> showModernDialog({
     context: context,
     barrierDismissible: barrierDismissible,
     barrierLabel: 'ModernDialog',
-    barrierColor: Colors.black.withOpacity(0.4),
+    barrierColor: Colors.black.withValues(alpha: 0.4),
     transitionDuration: const Duration(milliseconds: 300),
-    pageBuilder: (_, __, ___) => const SizedBox.shrink(),
+    pageBuilder: (_, _, _) => const SizedBox.shrink(),
     transitionBuilder: (context, anim1, anim2, child) {
       return Transform.scale(
         scale: Curves.easeOutBack.transform(anim1.value),
@@ -33,7 +33,7 @@ Future<Future<Object?>> showModernDialog({
                   borderRadius: BorderRadius.circular(22),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
+                      color: Colors.black.withValues(alpha: 0.15),
                       blurRadius: 25,
                       spreadRadius: 1,
                       offset: const Offset(0, 8),

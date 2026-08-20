@@ -28,9 +28,7 @@ class DailyReceiver : BroadcastReceiver() {
                 }
 
                 if (!hasRecentlyActiveDevice(context)) {
-                    Log.d(TAG, "Device tidak aktif. Notifikasi harian dilewati.")
-                    scheduleNextAlarm(context)
-                    return@launch
+                    Log.d(TAG, "Device tidak aktif atau heartbeat lama. Notifikasi harian tetap akan dikirim berdasarkan data kemarin.")
                 }
 
                 val avgPm25 = db.getAveragePm25Yesterday()
@@ -66,7 +64,7 @@ class DailyReceiver : BroadcastReceiver() {
         private const val SERVICE_PREFS_NAME = "airfresh_service_prefs"
         private const val STATUS_PREFS_NAME = "air_status_prefs"
         private const val KEY_DEVICE_ID = "device_id"
-        private const val ACTIVE_WINDOW_MILLIS = 15 * 60 * 1000L
+        private const val ACTIVE_WINDOW_MILLIS = 24 * 60 * 60 * 1000L
 
         private fun hasRecentlyActiveDevice(context: Context): Boolean {
             val deviceId = context.getSharedPreferences(SERVICE_PREFS_NAME, Context.MODE_PRIVATE)
@@ -75,16 +73,16 @@ class DailyReceiver : BroadcastReceiver() {
                 .orEmpty()
 
             if (deviceId.isEmpty()) {
-                Log.d(TAG, "Device ID kosong. Status aktif tidak bisa dicek.")
-                return false
+                Log.d(TAG, "Device ID kosong. Pemeriksaan heartbeat dilewati, notifikasi harian tetap akan diproses.")
+                return true
             }
 
             val lastActiveAt = context.getSharedPreferences(STATUS_PREFS_NAME, Context.MODE_PRIVATE)
                 .getLong("last_active_at_$deviceId", 0L)
 
             if (lastActiveAt <= 0L) {
-                Log.d(TAG, "Belum ada heartbeat aktif untuk device: $deviceId")
-                return false
+                Log.d(TAG, "Belum ada heartbeat aktif untuk device: $deviceId. Notifikasi harian tetap akan diproses.")
+                return true
             }
 
             val age = System.currentTimeMillis() - lastActiveAt

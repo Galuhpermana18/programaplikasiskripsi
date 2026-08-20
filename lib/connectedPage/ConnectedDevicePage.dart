@@ -324,10 +324,11 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage> {
           debugPrint('✓ WiFi sent successfully (attempt ${i + 1})');
         } catch (e) {
           debugPrint('Retry attempt ${i + 1} failed: $e');
-          if (i < 2)
+          if (i < 2) {
             await Future.delayed(Duration(seconds: i + 1));
-          else
+          } else {
             rethrow;
+          }
         }
       }
 
@@ -639,7 +640,7 @@ class _ConnectedDevicePageState extends State<ConnectedDevicePage> {
                           ),
                           Switch(
                             value: rememberWifi,
-                            activeColor: Colors.blue,
+                            activeThumbColor: Colors.blue,
                             onChanged: handleSwitchChanged,
                           ),
                         ],

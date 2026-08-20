@@ -922,7 +922,8 @@ class _HomePageState extends State<HomePage>
                                 child: buildMiniSensorCard(
                                   icon: Icons.thermostat_rounded,
                                   title: 'Temperature',
-                                  value: '${_sensorNumber(temperature)}°C',
+                                  value:
+                                      '${_sensorNumber(isConnected && temperature != 0 ? temperature - 5 : 0)}°C',
                                   color: Colors.orange,
                                 ),
                               ),

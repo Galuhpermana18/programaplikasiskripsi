@@ -368,12 +368,12 @@ class _ConnectPageState extends State<ConnectPage> {
       child: ListTile(
         onTap: () => connectToDevice(r.device),
         leading: CircleAvatar(
-          backgroundColor: Colors.blue.withOpacity(0.1),
+          backgroundColor: Colors.blue.withValues(alpha: 0.1),
           child: Image.asset(
             'assets/images/bleicon.png',
             width: 40,
             height: 40,
-            errorBuilder: (_, __, ___) =>
+            errorBuilder: (_, _, _) =>
                 const Icon(Icons.bluetooth, color: Colors.blue),
           ),
         ),
