@@ -14,6 +14,10 @@ import java.util.Calendar
 
 class DailyReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        // Jadwalkan hari berikutnya sebelum pekerjaan dimulai. Dengan begitu,
+        // error database atau proses receiver yang dihentikan Android tidak
+        // memutus rantai alarm harian.
+        scheduleNextAlarm(context)
         val pendingResult = goAsync()
 
         CoroutineScope(Dispatchers.IO).launch {
@@ -22,8 +26,12 @@ class DailyReceiver : BroadcastReceiver() {
                 db.deleteOlderThan(7)
 
                 if (!db.hasFreshDataYesterday()) {
-                    Log.d(TAG, "Tidak ada data kemarin. Notifikasi harian dilewati.")
-                    scheduleNextAlarm(context)
+                    Log.d(TAG, "Tidak ada data kemarin. Laporan tanpa data dikirim.")
+                    NotificationHelper.showDailyAirQualityNotification(
+                        context,
+                        "Laporan Harian Udara",
+                        "Belum ada data kualitas udara yang tercatat kemarin."
+                    )
                     return@launch
                 }
 
@@ -40,7 +48,13 @@ class DailyReceiver : BroadcastReceiver() {
                     "Rata-rata PM2.5 kemarin: $avgPm25\nStatus Udara: $status"
                 )
 
-                scheduleNextAlarm(context)
+            } catch (error: Exception) {
+                Log.e(TAG, "Gagal membuat laporan harian", error)
+                NotificationHelper.showDailyAirQualityNotification(
+                    context,
+                    "Laporan Harian Udara",
+                    "Laporan hari ini belum dapat dibuat. Monitoring akan tetap dilanjutkan."
+                )
             } finally {
                 pendingResult.finish()
             }
@@ -92,7 +106,9 @@ class DailyReceiver : BroadcastReceiver() {
 
         fun scheduleNextAlarm(context: Context) {
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-            val intent = Intent(context, DailyReceiver::class.java)
+            val intent = Intent(context, DailyReceiver::class.java).apply {
+                action = ACTION_DAILY_REPORT
+            }
             val pendingIntent = PendingIntent.getBroadcast(
                 context,
                 0,
@@ -111,13 +127,22 @@ class DailyReceiver : BroadcastReceiver() {
                 }
             }
 
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()) {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    calendar.timeInMillis,
-                    pendingIntent
-                )
-            } else {
+            try {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()) {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        calendar.timeInMillis,
+                        pendingIntent
+                    )
+                } else {
+                    alarmManager.setAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        calendar.timeInMillis,
+                        pendingIntent
+                    )
+                }
+            } catch (error: SecurityException) {
+                Log.w(TAG, "Exact alarm tidak diizinkan; memakai alarm fleksibel", error)
                 alarmManager.setAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
                     calendar.timeInMillis,
@@ -127,5 +152,8 @@ class DailyReceiver : BroadcastReceiver() {
 
             Log.d(TAG, "Alarm harian disetel: ${calendar.time}")
         }
+
+        private const val ACTION_DAILY_REPORT =
+            "com.DLabs.air_fresh.action.DAILY_AIR_QUALITY_REPORT"
     }
 }

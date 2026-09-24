@@ -23,6 +23,17 @@ class ForegroundService : Service() {
     private var deviceId: String = ""
     private var firebaseRef: DatabaseReference? = null
     private var firebaseListener: ValueEventListener? = null
+    private var latestPm25 = 0
+    private var latestPm10 = 0
+    private var latestCo2 = 0
+    private var latestTvoc = 0
+    private var hasLatestSensorData = false
+    private val periodicNotificationRunnable = object : Runnable {
+        override fun run() {
+            sendPeriodicAirQualityNotificationIfDue()
+            schedulePeriodicAirQualityNotification()
+        }
+    }
 
     companion object {
         private const val TAG = "ForegroundService"
@@ -30,6 +41,9 @@ class ForegroundService : Service() {
         private const val KEY_DEVICE_ID = "device_id"
         private const val ACTION_START = "com.DLabs.air_fresh.action.START_FOREGROUND"
         private const val RESTART_REQUEST_CODE = 1207
+        private const val AIR_QUALITY_NOTIFICATION_ID = 3001
+        private const val NOTIFICATION_INTERVAL_MS = 30L * 60L * 1000L
+        private const val SENSOR_FRESHNESS_MS = 2L * 60L * 1000L
 
         fun start(context: Context, deviceId: String? = null) {
             val intent = Intent(context, ForegroundService::class.java).apply {
@@ -148,6 +162,12 @@ class ForegroundService : Service() {
                     val filterLife = snapshot.child("filter/filterlife")
                         .getValue(Int::class.java) ?: 100
 
+                    latestPm25 = pm25
+                    latestPm10 = pm10
+                    latestCo2 = co2
+                    latestTvoc = tvoc
+                    hasLatestSensorData = true
+
                     val prefs = getSharedPreferences("air_status_prefs", Context.MODE_PRIVATE)
                     val lastSensorTimestamp = prefs.getString("last_sensor_timestamp_$deviceId", "")
                     if (sensorTimestamp.isNotEmpty() && sensorTimestamp != lastSensorTimestamp) {
@@ -198,11 +218,9 @@ class ForegroundService : Service() {
                     } else if (filterLife > 30 && hasSentFilterWarning) {
                         prefs.edit().putBoolean("filter_warn_sent_$deviceId", false).apply()
                     }
-                    
-                    Log.d(
-                        "Notification",
-                        "Notifikasi perubahan kategori PM2.5 dinonaktifkan. pm25=$pm25, pm10=$pm10"
-                    )
+
+                    sendPeriodicAirQualityNotificationIfDue()
+                    schedulePeriodicAirQualityNotification()
                 }
             }
 
@@ -246,14 +264,68 @@ class ForegroundService : Service() {
         }
     }
 
+    private fun airQualityStatus(pm25: Int): String = when {
+        pm25 <= 9 -> "BAIK"
+        pm25 <= 35 -> "SEDANG"
+        pm25 <= 55 -> "TIDAK SEHAT UNTUK KELOMPOK SENSITIF"
+        pm25 <= 125 -> "TIDAK SEHAT"
+        pm25 <= 225 -> "SANGAT TIDAK SEHAT"
+        else -> "BERBAHAYA"
+    }
+
+    private fun sendPeriodicAirQualityNotificationIfDue() {
+        if (!hasLatestSensorData || deviceId.isEmpty()) return
+
+        val prefs = getSharedPreferences("air_status_prefs", Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        val lastNotificationAt = prefs.getLong("last_periodic_notification_$deviceId", 0L)
+        if (now - lastNotificationAt < NOTIFICATION_INTERVAL_MS) return
+
+        val lastActiveAt = prefs.getLong("last_active_at_$deviceId", 0L)
+        if (lastActiveAt == 0L || now - lastActiveAt > SENSOR_FRESHNESS_MS) {
+            Log.d(TAG, "Notifikasi 30 menit dilewati karena data sensor tidak aktif")
+            return
+        }
+
+        val status = airQualityStatus(latestPm25)
+        val message = "Status: $status\n" +
+            "PM2.5: $latestPm25 µg/m³ | PM10: $latestPm10 µg/m³\n" +
+            "eCO₂: $latestCo2 ppm | TVOC: $latestTvoc ppb"
+        val notificationShown = showAirQualityNotification(
+            "Kualitas Udara Terkini",
+            message,
+            AIR_QUALITY_NOTIFICATION_ID
+        )
+        if (notificationShown) {
+            prefs.edit().putLong("last_periodic_notification_$deviceId", now).apply()
+        }
+    }
+
+    private fun schedulePeriodicAirQualityNotification() {
+        handler.removeCallbacks(periodicNotificationRunnable)
+        val lastNotificationAt = getSharedPreferences("air_status_prefs", Context.MODE_PRIVATE)
+            .getLong("last_periodic_notification_$deviceId", 0L)
+        val elapsed = System.currentTimeMillis() - lastNotificationAt
+        val delay = if (lastNotificationAt == 0L || elapsed >= NOTIFICATION_INTERVAL_MS) {
+            NOTIFICATION_INTERVAL_MS
+        } else {
+            NOTIFICATION_INTERVAL_MS - elapsed
+        }
+        handler.postDelayed(periodicNotificationRunnable, delay)
+    }
+
     private fun scheduleDailyNotification() {
         DailyReceiver.scheduleNextAlarm(this)
     }
 
-    private fun showAirQualityNotification(title: String, message: String) {
+    private fun showAirQualityNotification(
+        title: String,
+        message: String,
+        notificationId: Int = System.currentTimeMillis().toInt()
+    ): Boolean {
         if (!notificationsAllowed()) {
             Log.w("Notification", "Izin notifikasi belum diberikan")
-            return
+            return false
         }
 
         val channelId = "air_quality_alert_channel"
@@ -283,7 +355,8 @@ class ForegroundService : Service() {
             .setAutoCancel(true)
             .build()
 
-        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+        notificationManager.notify(notificationId, notification)
+        return true
     }
 
     private fun showFilterNotification(title: String, message: String) {
@@ -373,11 +446,28 @@ class ForegroundService : Service() {
         }
 
         val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        alarmManager.setAndAllowWhileIdle(
-            AlarmManager.RTC_WAKEUP,
-            System.currentTimeMillis() + 1000L,
-            pendingIntent
-        )
+        try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || alarmManager.canScheduleExactAlarms()) {
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    System.currentTimeMillis() + 1000L,
+                    pendingIntent
+                )
+            } else {
+                alarmManager.setAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    System.currentTimeMillis() + 1000L,
+                    pendingIntent
+                )
+            }
+        } catch (error: SecurityException) {
+            Log.w(TAG, "Exact alarm restart tidak diizinkan; memakai alarm fleksibel", error)
+            alarmManager.setAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                System.currentTimeMillis() + 1000L,
+                pendingIntent
+            )
+        }
         Log.d(TAG, "Service restart dijadwalkan setelah task dihapus")
     }
 

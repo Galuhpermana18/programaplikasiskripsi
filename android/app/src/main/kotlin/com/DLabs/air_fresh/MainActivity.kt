@@ -30,6 +30,11 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         currentDeviceId = loadSavedDeviceId()
+        try {
+            DailyReceiver.scheduleNextAlarm(this)
+        } catch (error: Exception) {
+            Log.e(TAG, "Gagal memulihkan jadwal notifikasi harian", error)
+        }
         requestNotificationPermission()
     }
 
